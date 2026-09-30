@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0b0f19">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NolMart Ops">
+  <meta name="description" content="Local-first private business manager, cashflow ledger, and inventory stock manager for NolMart.">
+
+  <title>NolMart Ops | Business & Stock Manager</title>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand-section">
+        <div class="brand-logo">
+          <img src="icons/favicon.svg" alt="NolMart Logo">
+        </div>
+        <div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="brand-title">NolMart</span>
+            <span class="brand-badge">Ops</span>
+          </div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="privacy-pill" title="All your financial data is stored 100% on your device only">
+          <span class="privacy-dot"></span>
+          <span>Local Only</span>
+        </div>
+        <button id="pwaInstallBtn" class="btn-icon" title="Install App to Phone" style="display: none;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="app-container">
+
+    <!-- ============================================== -->
+    <!-- TAB 1: DASHBOARD -->
+    <!-- ============================================== -->
+    <section id="tab-dashboard" class="tab-view active">
+      <!-- Quick Action Buttons -->
+      <div class="quick-action-bar">
+        <button id="openSaleModalBtn" class="btn-quick btn-sale">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Record Sale (+ Mauzo)</span>
+        </button>
+        <button id="openExpenseModalBtn" class="btn-quick btn-expense">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Record Expense (- Matumizi)</span>
+        </button>
+      </div>
+
+      <!-- Time Filter Selector -->
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-period="all">All Time</button>
+        <button class="filter-tab" data-period="this_month">This Month</button>
+        <button class="filter-tab" data-period="last_30_days">Last 30 Days</button>
+        <button class="filter-tab" data-period="today">Today</button>
+      </div>
+
+      <!-- Low Stock Alert Banner -->
+      <div id="lowStockBanner" class="low-stock-banner hidden">
+        <div class="alert-text">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4m0 4h.01"/>
+          </svg>
+          <span id="lowStockCountText">0 items are running low on stock!</span>
+        </div>
+        <button class="btn-alert" id="goToInventoryFromAlert">View Stock</button>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="stats-grid">
+        <!-- Hero: Expected Cash in Hand -->
+        <div class="stat-card hero-card">
+          <div class="stat-label">
+            <span>Expected Cash in Hand (Pesa Mkononi)</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+              <line x1="2" y1="10" x2="22" y2="10"></line>
+            </svg>
+          </div>
+          <div class="stat-value" id="statCashInHand">0 TZS</div>
+          <div class="stat-meta">
+            <span class="text-secondary">Total Inflow minus Total Outflow</span>
+          </div>
+        </div>
+
+        <!-- Total Sales Revenue -->
+        <div class="stat-card">
+          <div class="stat-label">
+            <span>Sales Revenue</span>
+            <span class="text-emerald">↑</span>
+          </div>
+          <div class="stat-value text-emerald" id="statTotalSales">0 TZS</div>
+          <div class="stat-meta">
+            <span id="statSalesCount" class="text-muted">0 sales recorded</span>
+          </div>
+        </div>
+
+        <!-- Total Expenses -->
+        <div class="stat-card">
+          <div class="stat-label">
+            <span>Operating Expenses</span>
+            <span class="text-rose">↓</span>
+          </div>
+          <div class="stat-value text-rose" id="statTotalExpenses">0 TZS</div>
+          <div class="stat-meta">
+            <span class="text-muted">Stock, logistics, materials</span>
+          </div>
+        </div>
+
+        <!-- Net Profit -->
+        <div class="stat-card">
+          <div class="stat-label">
+            <span>Net Profit</span>
+            <span id="statProfitBadge" class="brand-badge">0% Margin</span>
+          </div>
+          <div class="stat-value" id="statNetProfit">0 TZS</div>
+          <div class="stat-meta">
+            <span class="text-secondary">Sales minus Expenses</span>
+          </div>
+        </div>
+
+        <!-- Owner's Draw -->
+        <div class="stat-card">
+          <div class="stat-label">
+            <span>Owner's Draw (Salary)</span>
+            <span class="text-amber">👤</span>
+          </div>
+          <div class="stat-value text-amber" id="statOwnersDraw">0 TZS</div>
+          <div class="stat-meta">
+            <span class="text-muted">Personal withdrawals</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Money Channels Breakdown -->
+      <div class="money-methods-card">
+        <div class="card-heading">
+          <span>Payment Channels (Where is your money?)</span>
+          <span class="text-muted" style="font-size: 0.78rem;">Net Balances</span>
+        </div>
+        <div class="methods-grid">
+          <div class="method-item">
+            <span class="method-name">Cash</span>
+            <span class="method-amount" id="methodCash">0 TZS</span>
+          </div>
+          <div class="method-item">
+            <span class="method-name">M-Pesa</span>
+            <span class="method-amount" id="methodMpesa">0 TZS</span>
+          </div>
+          <div class="method-item">
+            <span class="method-name">Airtel Money</span>
+            <span class="method-amount" id="methodAirtel">0 TZS</span>
+          </div>
+          <div class="method-item">
+            <span class="method-name">Tigo Pesa</span>
+            <span class="method-amount" id="methodTigo">0 TZS</span>
+          </div>
+          <div class="method-item">
+            <span class="method-name">Bank Transfer</span>
+            <span class="method-amount" id="methodBank">0 TZS</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Transactions Mini-Feed -->
+      <div class="section-card">
+        <div class="section-header">
+          <span class="section-title">Recent Transactions</span>
+          <button id="viewAllTxBtn" class="btn-secondary">View All Ledger</button>
+        </div>
+        <div id="recentTxList" class="tx-list">
+          <!-- Injected via JavaScript -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- TAB 2: TRANSACTIONS (LEDGER) -->
+    <!-- ============================================== -->
+    <section id="tab-transactions" class="tab-view">
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Business Ledger</h2>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">Search and review every shilling in & out</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button id="exportTxCSVBtn" class="btn-secondary" title="Export to Excel / CSV">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+              </svg>
+              <span>Export CSV</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter & Search Controls -->
+        <div style="display: grid; grid-template-columns: 1fr 140px; gap: 10px; margin-bottom: 14px;">
+          <input type="text" id="txSearchInput" class="form-input" placeholder="Search by name, customer, note...">
+          <select id="txTypeFilter" class="form-select">
+            <option value="all">All Types</option>
+            <option value="income">Income Only (+)</option>
+            <option value="expense">Expenses Only (-)</option>
+          </select>
+        </div>
+
+        <!-- Full Transaction Feed -->
+        <div id="fullTxList" class="tx-list">
+          <!-- Injected via JavaScript -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- TAB 3: INVENTORY & STOCK -->
+    <!-- ============================================== -->
+    <section id="tab-inventory" class="tab-view">
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Inventory & Stock Levels</h2>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">Track bottles, raw perfume oils, packaging, and tech</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button id="openNewItemModalBtn" class="btn-secondary">+ Add Item</button>
+            <button id="exportInvCSVBtn" class="btn-secondary">Export CSV</button>
+          </div>
+        </div>
+
+        <!-- Category Filter -->
+        <div class="filter-tabs" style="margin-bottom: 14px;">
+          <button class="filter-tab active" data-inv-filter="all">All Items</button>
+          <button class="filter-tab" data-inv-filter="finished_perfume">Perfumes</button>
+          <button class="filter-tab" data-inv-filter="raw_material">Raw Oils & Ethanol</button>
+          <button class="filter-tab" data-inv-filter="packaging">Packaging</button>
+          <button class="filter-tab" data-inv-filter="tech_gadget">Tech</button>
+        </div>
+
+        <!-- Inventory Grid -->
+        <div id="inventoryGrid" class="inventory-grid">
+          <!-- Injected via JavaScript -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- TAB 4: PERFUME BATCH LAB (CALCULATOR) -->
+    <!-- ============================================== -->
+    <section id="tab-calculator" class="tab-view">
+      <div class="lab-card">
+        <div class="lab-title">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 2v7.31L4.36 17.6a2 2 0 0 0 1.64 2.4h12a2 2 0 0 0 1.64-2.4L14 9.31V2M8.5 2h7M14 9.3h-4M7.8 15h8.4"/>
+          </svg>
+          <span>Perfume Compounding & Batch Lab</span>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 18px;">
+          Calculate the exact milliliters of Concentrated Oil, Fixative, and Cosmetic Ethanol needed for your batch, plus cost per bottle and net profit.
+        </p>
+
+        <form id="perfumeCalcForm" class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Scent Blend Name</label>
+            <input type="text" id="calcScentName" class="form-input" value="Coconut Passion + Vanilla 28" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Bottle Size Format</label>
+            <select id="calcBottleSize" class="form-select">
+              <option value="30">30ml Spray Bottle</option>
+              <option value="10">10ml Spray Bottle</option>
+              <option value="6">6ml Pocket Roller</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Number of Bottles to Produce</label>
+            <input type="number" id="calcBottleCount" class="form-input" value="10" min="1" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Perfume Oil Concentration (%)</label>
+            <input type="number" id="calcOilPercent" class="form-input" value="25" min="5" max="60" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Fixative Concentration (%)</label>
+            <input type="number" id="calcFixativePercent" class="form-input" value="5" min="1" max="15" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Cosmetic Ethanol (%) [Auto-Balanced]</label>
+            <input type="text" id="calcEthanolPercent" class="form-input" value="70%" readonly style="opacity: 0.8;">
+          </div>
+        </form>
+
+        <!-- Lab Results Display -->
+        <div class="lab-results-box">
+          <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 10px; color: var(--cyan);">Formula Recipe Breakdown</h4>
+          <div class="recipe-row">
+            <span>Total Batch Volume:</span>
+            <span class="recipe-val" id="resTotalVolume">300 ml</span>
+          </div>
+          <div class="recipe-row">
+            <span>Concentrated Perfume Oil Needed:</span>
+            <span class="recipe-val text-amber" id="resOilVolume">75 ml</span>
+          </div>
+          <div class="recipe-row">
+            <span>Long-Lasting Fixative Needed:</span>
+            <span class="recipe-val text-cyan" id="resFixativeVolume">15 ml</span>
+          </div>
+          <div class="recipe-row">
+            <span>Cosmetic Ethanol Needed:</span>
+            <span class="recipe-val text-emerald" id="resEthanolVolume">210 ml</span>
+          </div>
+
+          <h4 style="font-size: 0.95rem; font-weight: 700; margin: 16px 0 10px; color: var(--emerald);">Batch Economics & Profit</h4>
+          <div class="recipe-row">
+            <span>Total Batch Production Cost:</span>
+            <span class="recipe-val text-rose" id="resTotalCost">0 TZS</span>
+          </div>
+          <div class="recipe-row">
+            <span>Cost per Bottle:</span>
+            <span class="recipe-val text-rose" id="resCostPerBottle">0 TZS</span>
+          </div>
+          <div class="recipe-row">
+            <span>Total Expected Revenue:</span>
+            <span class="recipe-val text-emerald" id="resTotalRevenue">0 TZS</span>
+          </div>
+          <div class="recipe-row">
+            <span>Net Profit for this Batch:</span>
+            <span class="recipe-val text-emerald" id="resNetProfit" style="font-size: 1.1rem;">0 TZS (0% Margin)</span>
+          </div>
+
+          <button id="saveBatchToStockBtn" class="btn-primary" style="margin-top: 18px; width: 100%;">
+            ✓ Produce Batch & Add to Stock
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- TAB 5: SETTINGS & BACKUP (DATA PRIVACY) -->
+    <!-- ============================================== -->
+    <section id="tab-settings" class="tab-view">
+      <div class="section-card">
+        <h2 class="section-title">Data Privacy & Security Guarantee</h2>
+        <div style="background: var(--bg-surface); padding: 16px; border-radius: var(--radius-md); margin-top: 12px; border-left: 4px solid var(--emerald);">
+          <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6;">
+            <strong>100% Private to Your Phone:</strong> This app uses <em>IndexedDB</em>, a client-side database built into your browser. Your transactions, customer numbers, profit, and stock figures are <strong>never</strong> transmitted to any server or public cloud.
+          </p>
+        </div>
+
+        <h3 style="font-size: 1rem; font-weight: 700; margin: 24px 0 12px;">Backup & Restore</h3>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px;">
+          Always download a backup file regularly to your device so you never lose your records even if you clear your browser cache.
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <button id="downloadBackupBtn" class="btn-secondary" style="padding: 12px 16px; font-weight: 600; justify-content: flex-start;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+            <span>Download Full Backup (Private JSON)</span>
+          </button>
+
+          <label class="btn-secondary" style="padding: 12px 16px; font-weight: 600; justify-content: flex-start; cursor: pointer;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+            </svg>
+            <span>Restore from Backup File</span>
+            <input type="file" id="restoreFileInput" accept=".json" style="display: none;">
+          </label>
+        </div>
+
+        <h3 style="font-size: 1rem; font-weight: 700; margin: 24px 0 12px;">Excel / CSV Data Exports</h3>
+        <div style="display: flex; gap: 10px;">
+          <button id="exportAllTxCSV" class="btn-secondary" style="flex: 1;">Export Ledger to CSV</button>
+          <button id="exportAllInvCSV" class="btn-secondary" style="flex: 1;">Export Stock to CSV</button>
+        </div>
+
+        <h3 style="font-size: 1rem; font-weight: 700; margin: 24px 0 12px; color: var(--rose);">Danger Zone</h3>
+        <button id="clearDataBtn" class="btn-secondary" style="border-color: var(--rose-border); color: var(--rose); width: 100%;">
+          Reset All Data to Default
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================== -->
+  <!-- MODAL: RECORD SALE (+ MAUZO) -->
+  <!-- ============================================== -->
+  <div id="saleModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title text-emerald">+ Record New Sale (Mauzo)</h3>
+        <button class="close-btn" data-close-modal="saleModal">&times;</button>
+      </div>
+
+      <form id="saleForm">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Select Item from Stock (Optional)</label>
+          <select id="saleInventorySelect" class="form-select">
+            <option value="">-- Manual Item Entry --</option>
+            <!-- Injected via JavaScript -->
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Product / Scent Description</label>
+          <input type="text" id="saleDescription" class="form-input" placeholder="e.g. Coconut Passion + Vanilla 28 (30ml)" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div class="form-group">
+            <label class="form-label">Quantity</label>
+            <input type="number" id="saleQuantity" class="form-input" value="1" min="1" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Total Amount (TZS)</label>
+            <input type="number" id="saleAmount" class="form-input" placeholder="35000" required>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Payment Channel</label>
+          <select id="salePaymentMethod" class="form-select">
+            <option value="mpesa">M-Pesa</option>
+            <option value="cash">Cash (Pesa Taslimu)</option>
+            <option value="airtel">Airtel Money</option>
+            <option value="tigo">Tigo Pesa</option>
+            <option value="bank">Bank Transfer</option>
+          </select>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div class="form-group">
+            <label class="form-label">Customer Name</label>
+            <input type="text" id="saleCustomerName" class="form-input" placeholder="e.g. Sarah">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Customer Phone / WhatsApp</label>
+            <input type="tel" id="saleCustomerPhone" class="form-input" placeholder="e.g. 07XXXXXXXX">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label">Date</label>
+          <input type="date" id="saleDate" class="form-input" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label">Notes (Optional)</label>
+          <input type="text" id="saleNotes" class="form-input" placeholder="e.g. Instagram DM order, sent via boda">
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" class="btn-primary" style="background: var(--emerald);">Save Sale (+ TZS)</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: RECORD EXPENSE (- MATUMIZI) -->
+  <!-- ============================================== -->
+  <div id="expenseModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title text-rose">- Record New Expense (Matumizi)</h3>
+        <button class="close-btn" data-close-modal="expenseModal">&times;</button>
+      </div>
+
+      <form id="expenseForm">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Expense Category</label>
+          <select id="expenseCategory" class="form-select" required>
+            <option value="raw_oil">Raw Perfume Oils (Stock)</option>
+            <option value="raw_ethanol">Cosmetic Ethanol</option>
+            <option value="raw_fixative">Perfume Fixative</option>
+            <option value="packaging_bottles">Bottles & Sprays</option>
+            <option value="packaging_bags">Packaging Bags (Mifuko A6)</option>
+            <option value="labels_printing">Stickers & Printing</option>
+            <option value="tech_stock">Tech Inventory Restock</option>
+            <option value="transport_delivery">Transport & Delivery</option>
+            <option value="marketing">Marketing & Ads</option>
+            <option value="equipment">Equipment & Tools</option>
+            <option value="owner_draw">Owner's Draw (Salary/Personal)</option>
+            <option value="other_expense">Other Expense</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Description</label>
+          <input type="text" id="expenseDescription" class="form-input" placeholder="e.g. 1L Ethanol restock or 12x 30ml bottles" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div class="form-group">
+            <label class="form-label">Amount Paid (TZS)</label>
+            <input type="number" id="expenseAmount" class="form-input" placeholder="25000" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Paid Via</label>
+            <select id="expensePaymentMethod" class="form-select">
+              <option value="mpesa">M-Pesa</option>
+              <option value="cash">Cash</option>
+              <option value="airtel">Airtel Money</option>
+              <option value="tigo">Tigo Pesa</option>
+              <option value="bank">Bank Transfer</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label">Date</label>
+          <input type="date" id="expenseDate" class="form-input" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label">Notes (Optional)</label>
+          <input type="text" id="expenseNotes" class="form-input" placeholder="e.g. Bought from Kariakoo supplier">
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" class="btn-primary" style="background: var(--rose);">Record Expense (- TZS)</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: ADD INVENTORY ITEM -->
+  <!-- ============================================== -->
+  <div id="newItemModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">+ Add New Inventory Item</h3>
+        <button class="close-btn" data-close-modal="newItemModal">&times;</button>
+      </div>
+
+      <form id="newItemForm">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Item Name</label>
+          <input type="text" id="newItemName" class="form-input" placeholder="e.g. Baccarat Rouge 540 (30ml)" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="newItemCategory" class="form-select">
+              <option value="finished_perfume">Finished Perfume</option>
+              <option value="raw_material">Raw Oil / Solvent</option>
+              <option value="packaging">Packaging Material</option>
+              <option value="tech_gadget">Tech & Gadget</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Unit of Measure</label>
+            <input type="text" id="newItemUnit" class="form-input" value="bottles" placeholder="bottles, ml, pcs" required>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div class="form-group">
+            <label class="form-label">Current Quantity</label>
+            <input type="number" id="newItemQty" class="form-input" value="10" min="0" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Low Stock Alert Level</label>
+            <input type="number" id="newItemThreshold" class="form-input" value="3" min="1" required>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+          <div class="form-group">
+            <label class="form-label">Unit Cost (TZS)</label>
+            <input type="number" id="newItemCost" class="form-input" placeholder="9000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Selling Price (TZS)</label>
+            <input type="number" id="newItemPrice" class="form-input" placeholder="35000">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" class="btn-primary">Add Item to Stock</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation Bar (Mobile Thumb-Friendly) -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-tab="tab-dashboard">
+      <svg viewBox="0 0 24 24">
+        <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+      </svg>
+      <span>Dashboard</span>
+    </button>
+    <button class="nav-item" data-tab="tab-transactions">
+      <svg viewBox="0 0 24 24">
+        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+      </svg>
+      <span>Ledger</span>
+    </button>
+    <button class="nav-item" data-tab="tab-inventory">
+      <svg viewBox="0 0 24 24">
+        <path d="M20 2H4c-1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-1-2-2-2zm-1 18H5V9h14v11zm1-13H4V4h16v3z"/>
+      </svg>
+      <span>Stock</span>
+    </button>
+    <button class="nav-item" data-tab="tab-calculator">
+      <svg viewBox="0 0 24 24">
+        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+      </svg>
+      <span>Lab</span>
+    </button>
+    <button class="nav-item" data-tab="tab-settings">
+      <svg viewBox="0 0 24 24">
+        <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+      </svg>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+  <!-- PWA Service Worker Registration & App Controller Scripts -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
