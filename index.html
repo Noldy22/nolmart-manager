@@ -158,8 +158,11 @@
 
       <!-- Money Channels Breakdown -->
       <div class="money-methods-card">
-        <div class="card-heading">
+        <div class="card-heading" style="display: flex; justify-content: space-between; align-items: center;">
           <span>Payment Channels</span>
+          <button id="openRebalanceModalBtn" class="btn-rebalance" title="Rebalance physical phone balance with ledger">
+            ⚖️ Rebalance Channel
+          </button>
         </div>
         <div class="methods-grid">
           <div class="method-item">
@@ -509,6 +512,18 @@
           </div>
         </div>
 
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+          <div class="form-group">
+            <label class="form-label">Transaction Fee (TZS)</label>
+            <input type="number" id="expenseFee" class="form-input" value="0" min="0">
+            <span class="fee-badge-alert" id="feeNotice">🛡️ Max tariff auto-added</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Total Outflow</label>
+            <input type="text" id="expenseTotalOutflow" class="form-input" value="0 TZS" readonly style="opacity: 0.9; font-weight: 700; color: var(--rose);">
+          </div>
+        </div>
+
         <div class="form-group" style="margin-bottom: 12px;">
           <label class="form-label">Date</label>
           <input type="date" id="expenseDate" class="form-input" required>
@@ -623,6 +638,61 @@
 
         <div class="modal-footer">
           <button type="submit" class="btn-primary" style="background: var(--emerald);">Record Sale & Deduct Stock</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: REBALANCE PAYMENT CHANNEL -->
+  <!-- ============================================== -->
+  <div id="rebalanceModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title text-cyan">⚖️ Rebalance Payment Channel</h3>
+        <button class="close-btn" data-close-modal="rebalanceModal">&times;</button>
+      </div>
+
+      <form id="rebalanceForm">
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label class="form-label">Payment Channel</label>
+          <select id="rebalanceChannelSelect" class="form-select">
+            <option value="mpesa">M-Pesa</option>
+            <option value="cash">Cash (Physical Pocket)</option>
+            <option value="airtel">Airtel Money</option>
+            <option value="tigo">Tigo Pesa</option>
+            <option value="bank">Bank Account</option>
+          </select>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+          <div class="form-group">
+            <label class="form-label">Current Ledger Balance</label>
+            <input type="text" id="rebalanceCurrentLedger" class="form-input" readonly style="opacity: 0.85; font-weight: 700;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Actual Phone/Pocket Balance</label>
+            <input type="number" id="rebalanceActualAmount" class="form-input" placeholder="e.g. 145000" required>
+          </div>
+        </div>
+
+        <div id="rebalanceDiscrepancyCard" style="background: var(--bg-surface); padding: 10px 12px; border-radius: var(--radius-sm); margin-bottom: 12px; border-left: 3px solid var(--amber);">
+          <div style="font-size: 0.78rem; color: var(--text-muted);">Discrepancy:</div>
+          <div id="rebalanceDiscrepancyText" style="font-size: 1.05rem; font-weight: 700; margin-top: 2px;">0 TZS</div>
+          <div id="rebalanceExplanation" style="font-size: 0.74rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;">
+            Type your actual phone/cash balance to compare with the ledger.
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Reason / Adjustment Note</label>
+          <input type="text" id="rebalanceReason" class="form-input" value="Ledger Rebalancing / Tariff Reconciliation">
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" id="submitRebalanceBtn" class="btn-primary" style="background: var(--cyan); color: #0b0f19; font-weight: 700;">
+            Confirm Rebalancing
+          </button>
         </div>
       </form>
     </div>

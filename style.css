@@ -129,16 +129,18 @@ body {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #1e293b, #0f172a);
-  border: 1px solid var(--cyan-border);
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 3px;
+  flex-shrink: 0;
 }
 
 .brand-logo img {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
 }
 
@@ -833,20 +835,91 @@ body {
   color: var(--text-secondary);
 }
 
-.form-input, .form-select {
+.form-input {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 10px 12px;
+  padding: 11px 12px;
   border-radius: var(--radius-sm);
   font-size: 16px; /* Essential to prevent iOS zoom */
   outline: none;
   width: 100%;
   font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.form-input:focus, .form-select:focus {
+.form-input:focus {
   border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+
+/* Custom Styled Dropdowns Matching Dark Theme */
+.form-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: #141c2e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2338bdf8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 14px center;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: var(--text-primary);
+  padding: 11px 38px 11px 13px;
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  outline: none;
+  width: 100%;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.form-select:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+  background-color: #172138;
+}
+
+.form-select option {
+  background-color: #0f172a;
+  color: #f1f5f9;
+  padding: 12px 10px;
+}
+
+.form-select optgroup {
+  background-color: #0b0f19;
+  color: var(--cyan);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+  padding: 6px 0;
+}
+
+.fee-badge-alert {
+  font-size: 0.72rem;
+  color: var(--amber);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.4;
+}
+
+.btn-rebalance {
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid var(--cyan-border);
+  color: var(--cyan);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-rebalance:active {
+  transform: scale(0.97);
+  background: rgba(56, 189, 248, 0.2);
 }
 
 /* Modals */

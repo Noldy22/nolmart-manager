@@ -118,6 +118,7 @@ export async function addTransaction(transactionData) {
     const entry = {
       ...transactionData,
       amount: parseFloat(transactionData.amount) || 0,
+      fee: parseFloat(transactionData.fee) || 0,
       quantity: parseInt(transactionData.quantity, 10) || 1,
       date: transactionData.date || new Date().toISOString().split('T')[0],
       timestamp: Date.now()
@@ -356,9 +357,34 @@ export async function getFinancialSummary(filterDateRange = 'all') {
     bank: 0
   };
 
+  let allTimeMoneyIn = 0;
+  let allTimeMoneyOut = 0;
+
+  // Calculate cumulative balances per payment channel across all-time
+  for (const t of transactions) {
+    const amt = Number(t.amount) || 0;
+    const fee = Number(t.fee) || 0;
+    const method = (t.paymentMethod || 'cash').toLowerCase();
+
+    if (t.type === 'income') {
+      allTimeMoneyIn += amt;
+      if (paymentBreakdown[method] !== undefined) {
+        paymentBreakdown[method] += amt;
+      }
+    } else if (t.type === 'expense') {
+      const totalOut = amt + fee;
+      allTimeMoneyOut += totalOut;
+      if (paymentBreakdown[method] !== undefined) {
+        paymentBreakdown[method] -= totalOut;
+      }
+    }
+  }
+
+  // Calculate period-filtered income, expenses, and net profit
   for (const t of filtered) {
     const amount = Number(t.amount) || 0;
-    const method = t.paymentMethod || 'cash';
+    const fee = Number(t.fee) || 0;
+    const totalOutflow = amount + fee;
 
     if (t.type === 'income') {
       if (t.category === 'capital') {
@@ -366,23 +392,13 @@ export async function getFinancialSummary(filterDateRange = 'all') {
       } else {
         totalSales += amount;
       }
-      if (paymentBreakdown[method] !== undefined) paymentBreakdown[method] += amount;
     } else if (t.type === 'expense') {
       if (t.category === 'owner_draw') {
-        ownersDraw += amount;
+        ownersDraw += totalOutflow;
       } else {
-        totalExpenses += amount;
+        totalExpenses += totalOutflow;
       }
-      if (paymentBreakdown[method] !== undefined) paymentBreakdown[method] -= amount;
     }
-  }
-
-  let allTimeMoneyIn = 0;
-  let allTimeMoneyOut = 0;
-  for (const t of transactions) {
-    const amt = Number(t.amount) || 0;
-    if (t.type === 'income') allTimeMoneyIn += amt;
-    else if (t.type === 'expense') allTimeMoneyOut += amt;
   }
 
   const expectedCashInHand = allTimeMoneyIn - allTimeMoneyOut;

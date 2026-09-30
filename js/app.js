@@ -15,7 +15,8 @@ import {
 
 import {
   RECIPES_CATALOG,
-  getSOPMeasurements
+  getSOPMeasurements,
+  calculateMaxTransactionCost
 } from './calculator.js';
 
 import {
@@ -32,6 +33,7 @@ let state = {
   currentInvFilter: 'all',
   inventory: [],
   transactions: [],
+  financialSummary: null,
   selectedRecipeId: RECIPES_CATALOG[0].id,
   selectedBottleSize: 30,
   activeSOPMeasurements: null,
@@ -155,7 +157,14 @@ function initModals() {
   document.getElementById('openExpenseModalBtn')?.addEventListener('click', () => {
     const dateInput = document.getElementById('expenseDate');
     if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+    updateExpenseCalculations();
     openModal('expenseModal');
+  });
+
+  // Open Rebalance Channel Modal
+  document.getElementById('openRebalanceModalBtn')?.addEventListener('click', () => {
+    updateRebalanceModalView();
+    openModal('rebalanceModal');
   });
 
   // Open Add Inventory Item Modal
@@ -250,17 +259,38 @@ function initForms() {
     });
   }
 
-  // 2. Submit Expense
+  // 2. Submit Expense with Dynamic Max Transaction Cost
   const expenseForm = document.getElementById('expenseForm');
+  const expenseAmountEl = document.getElementById('expenseAmount');
+  const expenseMethodEl = document.getElementById('expensePaymentMethod');
+  const expenseFeeEl = document.getElementById('expenseFee');
+
+  if (expenseAmountEl) {
+    expenseAmountEl.addEventListener('input', updateExpenseCalculations);
+  }
+  if (expenseMethodEl) {
+    expenseMethodEl.addEventListener('change', updateExpenseCalculations);
+  }
+  if (expenseFeeEl) {
+    expenseFeeEl.addEventListener('input', () => {
+      const amt = parseFloat(expenseAmountEl?.value) || 0;
+      const fee = parseFloat(expenseFeeEl.value) || 0;
+      const outflowEl = document.getElementById('expenseTotalOutflow');
+      if (outflowEl) outflowEl.value = formatTZS(amt + fee);
+    });
+  }
+
   if (expenseForm) {
     expenseForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const category = document.getElementById('expenseCategory').value;
       const description = document.getElementById('expenseDescription').value.trim();
       const amount = parseFloat(document.getElementById('expenseAmount').value) || 0;
+      const fee = parseFloat(document.getElementById('expenseFee')?.value) || 0;
       const paymentMethod = document.getElementById('expensePaymentMethod').value;
       const date = document.getElementById('expenseDate').value;
       const notes = document.getElementById('expenseNotes').value.trim();
+      const totalOutflow = amount + fee;
 
       try {
         await addTransaction({
@@ -268,14 +298,15 @@ function initForms() {
           category,
           description,
           amount,
+          fee,
           paymentMethod,
           date,
-          notes
+          notes: fee > 0 ? `${notes ? notes + ' | ' : ''}Tariff: ${formatTZS(fee)}` : notes
         });
 
         closeModal('expenseModal');
         expenseForm.reset();
-        showToast(`Expense recorded: -${formatTZS(amount)}`, 'success');
+        showToast(`Expense recorded: -${formatTZS(totalOutflow)} (${paymentMethod.toUpperCase()})`, 'success');
         await loadAllData();
       } catch (err) {
         showToast('Error recording expense: ' + err.message, 'error');
@@ -365,6 +396,160 @@ function initForms() {
       }
     });
   }
+
+  // 5. Rebalance Payment Channel Form
+  const rebalanceForm = document.getElementById('rebalanceForm');
+  const rebalanceChannelSelect = document.getElementById('rebalanceChannelSelect');
+  const rebalanceActualAmountInput = document.getElementById('rebalanceActualAmount');
+
+  if (rebalanceChannelSelect) {
+    rebalanceChannelSelect.addEventListener('change', updateRebalanceModalView);
+  }
+
+  if (rebalanceActualAmountInput) {
+    rebalanceActualAmountInput.addEventListener('input', calculateRebalanceDiscrepancy);
+  }
+
+  if (rebalanceForm) {
+    rebalanceForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const channel = rebalanceChannelSelect?.value || 'cash';
+      const ledgerBalance = state.financialSummary ? (state.financialSummary.paymentBreakdown[channel] || 0) : 0;
+      const actualBalance = parseFloat(rebalanceActualAmountInput?.value) || 0;
+      const diff = actualBalance - ledgerBalance;
+      const reason = (document.getElementById('rebalanceReason')?.value || 'Tariff / Ledger Reconciliation').trim();
+      const channelName = rebalanceChannelSelect?.options[rebalanceChannelSelect.selectedIndex]?.text || channel.toUpperCase();
+
+      if (diff === 0) {
+        showToast('Channel is already perfectly balanced!', 'info');
+        closeModal('rebalanceModal');
+        return;
+      }
+
+      try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (diff < 0) {
+          // Actual < Ledger -> Log shortfall expense adjustment
+          await addTransaction({
+            type: 'expense',
+            category: 'balance_adjustment',
+            description: `Ledger Rebalance: ${channel.toUpperCase()}`,
+            amount: Math.abs(diff),
+            fee: 0,
+            paymentMethod: channel,
+            date: todayStr,
+            notes: `${reason} | Shortfall: ${formatTZS(Math.abs(diff))} adjusted to match phone (${formatTZS(actualBalance)})`
+          });
+        } else {
+          // Actual > Ledger -> Log surplus income adjustment
+          await addTransaction({
+            type: 'income',
+            category: 'balance_adjustment',
+            description: `Ledger Rebalance: ${channel.toUpperCase()}`,
+            amount: diff,
+            fee: 0,
+            paymentMethod: channel,
+            date: todayStr,
+            notes: `${reason} | Surplus: ${formatTZS(diff)} adjusted to match phone (${formatTZS(actualBalance)})`
+          });
+        }
+
+        closeModal('rebalanceModal');
+        rebalanceForm.reset();
+        showToast(`⚖️ ${channelName} rebalanced to ${formatTZS(actualBalance)}!`, 'success');
+        await loadAllData();
+      } catch (err) {
+        showToast('Error rebalancing channel: ' + err.message, 'error');
+      }
+    });
+  }
+}
+
+// ==========================================
+// DYNAMIC EXPENSE & REBALANCE HELPERS
+// ==========================================
+function updateExpenseCalculations() {
+  const expenseAmountEl = document.getElementById('expenseAmount');
+  const expenseMethodEl = document.getElementById('expensePaymentMethod');
+  const expenseFeeEl = document.getElementById('expenseFee');
+  const feeNoticeEl = document.getElementById('feeNotice');
+  const expenseOutflowEl = document.getElementById('expenseTotalOutflow');
+
+  if (!expenseAmountEl || !expenseMethodEl || !expenseFeeEl) return;
+  const amt = parseFloat(expenseAmountEl.value) || 0;
+  const method = expenseMethodEl.value;
+
+  const maxFee = calculateMaxTransactionCost(amt, method);
+  expenseFeeEl.value = maxFee;
+
+  const totalOutflow = amt + maxFee;
+  if (expenseOutflowEl) expenseOutflowEl.value = formatTZS(totalOutflow);
+
+  if (feeNoticeEl) {
+    if (method === 'cash') {
+      feeNoticeEl.textContent = 'Cash expense — 0 TZS fee.';
+      feeNoticeEl.style.color = 'var(--text-muted)';
+    } else {
+      feeNoticeEl.textContent = `🛡️ Max tariff auto-added (+${formatTZS(maxFee)}) to protect cash reserves.`;
+      feeNoticeEl.style.color = 'var(--amber)';
+    }
+  }
+}
+
+function updateRebalanceModalView() {
+  const rebalanceChannelSelect = document.getElementById('rebalanceChannelSelect');
+  const rebalanceCurrentLedgerInput = document.getElementById('rebalanceCurrentLedger');
+  const rebalanceActualAmountInput = document.getElementById('rebalanceActualAmount');
+
+  if (!rebalanceChannelSelect || !state.financialSummary) return;
+  const channel = rebalanceChannelSelect.value;
+  const ledgerBalance = state.financialSummary.paymentBreakdown[channel] || 0;
+
+  if (rebalanceCurrentLedgerInput) {
+    rebalanceCurrentLedgerInput.value = formatTZS(ledgerBalance);
+  }
+  if (rebalanceActualAmountInput) {
+    rebalanceActualAmountInput.value = '';
+  }
+
+  calculateRebalanceDiscrepancy();
+}
+
+function calculateRebalanceDiscrepancy() {
+  const rebalanceChannelSelect = document.getElementById('rebalanceChannelSelect');
+  const rebalanceActualAmountInput = document.getElementById('rebalanceActualAmount');
+  const rebalanceDiscrepancyText = document.getElementById('rebalanceDiscrepancyText');
+  const rebalanceExplanation = document.getElementById('rebalanceExplanation');
+
+  if (!rebalanceChannelSelect || !state.financialSummary || !rebalanceDiscrepancyText) return;
+  const channel = rebalanceChannelSelect.value;
+  const ledgerBalance = state.financialSummary.paymentBreakdown[channel] || 0;
+  const actualVal = rebalanceActualAmountInput ? rebalanceActualAmountInput.value.trim() : '';
+
+  if (actualVal === '') {
+    rebalanceDiscrepancyText.textContent = '0 TZS';
+    rebalanceDiscrepancyText.style.color = 'var(--text-primary)';
+    if (rebalanceExplanation) rebalanceExplanation.textContent = 'Type your physical phone/cash balance to compare with the ledger.';
+    return;
+  }
+
+  const actualBalance = parseFloat(actualVal) || 0;
+  const diff = actualBalance - ledgerBalance;
+
+  if (diff === 0) {
+    rebalanceDiscrepancyText.textContent = '0 TZS (Balanced)';
+    rebalanceDiscrepancyText.style.color = 'var(--emerald)';
+    if (rebalanceExplanation) rebalanceExplanation.textContent = 'Physical phone balance matches ledger exactly. No adjustment needed.';
+  } else if (diff < 0) {
+    const shortfall = Math.abs(diff);
+    rebalanceDiscrepancyText.textContent = `-${formatTZS(shortfall)} (Shortfall)`;
+    rebalanceDiscrepancyText.style.color = 'var(--rose)';
+    if (rebalanceExplanation) rebalanceExplanation.textContent = `Phone balance is less by ${formatTZS(shortfall)} (unrecorded tariff/fee). Confirming logs an adjustment expense to reconcile.`;
+  } else {
+    rebalanceDiscrepancyText.textContent = `+${formatTZS(diff)} (Surplus)`;
+    rebalanceDiscrepancyText.style.color = 'var(--emerald)';
+    if (rebalanceExplanation) rebalanceExplanation.textContent = `Phone balance has an extra ${formatTZS(diff)}. Confirming logs an adjustment income to reconcile.`;
+  }
 }
 
 // ==========================================
@@ -372,6 +557,7 @@ function initForms() {
 // ==========================================
 async function renderDashboard() {
   const summary = await getFinancialSummary(state.currentPeriod);
+  state.financialSummary = summary;
 
   document.getElementById('statCashInHand').textContent = formatTZS(summary.expectedCashInHand);
   document.getElementById('statTotalSales').textContent = formatTZS(summary.totalSales);
@@ -420,8 +606,11 @@ async function renderDashboard() {
 
 function renderTxItemHTML(t) {
   const isIncome = t.type === 'income';
+  const isRebalance = t.category === 'balance_adjustment';
+  const fee = Number(t.fee) || 0;
+  const totalAmount = t.amount + fee;
   const sign = isIncome ? '+' : '-';
-  const icon = isIncome ? '↑' : '↓';
+  const icon = isRebalance ? '⚖️' : (isIncome ? '↑' : '↓');
 
   return `
     <div class="tx-item ${isIncome ? 'tx-income' : 'tx-expense'}">
@@ -433,12 +622,13 @@ function renderTxItemHTML(t) {
             <span>${t.date}</span>
             <span>•</span>
             <span class="tx-payment-badge">${(t.paymentMethod || 'cash').toUpperCase()}</span>
+            ${fee > 0 ? `<span style="color: var(--amber); font-weight: 600;">• Fee: ${formatTZS(fee)}</span>` : ''}
             ${t.customerName ? `<span>• ${escapeHTML(t.customerName)}</span>` : ''}
           </span>
         </div>
       </div>
       <div style="display: flex; align-items: center; gap: 8px;">
-        <span class="tx-amount">${sign}${formatTZS(t.amount)}</span>
+        <span class="tx-amount">${sign}${formatTZS(totalAmount)}</span>
         <button class="btn-stock-adjust delete-tx-btn" data-tx-id="${t.id}" title="Delete" style="color: var(--text-muted); width: 26px; height: 26px; font-size: 0.85rem;">&times;</button>
       </div>
     </div>
@@ -567,9 +757,28 @@ function initSOPLab() {
   const sizeSelect = document.getElementById('sopSizeSelect');
 
   if (recipeSelect) {
-    recipeSelect.innerHTML = RECIPES_CATALOG.map(r => `
-      <option value="${r.id}">${r.name} (${r.category})</option>
-    `).join('');
+    const signatureBlends = RECIPES_CATALOG.filter(r => r.group === 'Signature Blends');
+    const singleNotes = RECIPES_CATALOG.filter(r => r.group === 'Single Note Scents');
+    const customBlends = RECIPES_CATALOG.filter(r => r.group === 'Custom Blends');
+
+    let html = '';
+    if (signatureBlends.length > 0) {
+      html += `<optgroup label="🌟 Signature Blends (SOP)">` +
+        signatureBlends.map(r => `<option value="${r.id}">${r.name}</option>`).join('') +
+        `</optgroup>`;
+    }
+    if (singleNotes.length > 0) {
+      html += `<optgroup label="💎 Single Note Scents (SOP)">` +
+        singleNotes.map(r => `<option value="${r.id}">${r.name}</option>`).join('') +
+        `</optgroup>`;
+    }
+    if (customBlends.length > 0) {
+      html += `<optgroup label="🧪 Custom Blends">` +
+        customBlends.map(r => `<option value="${r.id}">${r.name}</option>`).join('') +
+        `</optgroup>`;
+    }
+
+    recipeSelect.innerHTML = html;
 
     recipeSelect.addEventListener('change', () => {
       state.selectedRecipeId = recipeSelect.value;
@@ -766,6 +975,7 @@ async function loadAllData() {
   await openDatabase();
   state.inventory = await getAllInventory();
   state.transactions = await getAllTransactions();
+  state.financialSummary = await getFinancialSummary(state.currentPeriod);
 
   if (state.currentTab === 'tab-dashboard') renderDashboard();
   else if (state.currentTab === 'tab-transactions') renderTransactionsTab();
