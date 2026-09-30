@@ -63,26 +63,26 @@ async function checkAndSeedPerfumeInventory(db) {
   if (count > 0) return; // already populated
 
   const initialPerfumeStock = [
-    // 1. Concentrated Perfume Oils (tracked in ml)
-    { name: 'Coconut Passion Oil', category: 'raw_oil', scentKey: 'coconut_passion', quantity: 100, unit: 'ml', unitCost: 150, sellingPrice: 0, minThreshold: 20 },
-    { name: 'Vanilla 28 Oil', category: 'raw_oil', scentKey: 'vanilla_28', quantity: 100, unit: 'ml', unitCost: 160, sellingPrice: 0, minThreshold: 20 },
-    { name: 'Pink Chiffon Oil', category: 'raw_oil', scentKey: 'pink_chiffon', quantity: 100, unit: 'ml', unitCost: 150, sellingPrice: 0, minThreshold: 20 },
-    { name: 'Now Rave Oil', category: 'raw_oil', scentKey: 'now_rave', quantity: 100, unit: 'ml', unitCost: 160, sellingPrice: 0, minThreshold: 20 },
-    { name: 'Tom Ford Noir Extreme Oil', category: 'raw_oil', scentKey: 'noir_extreme', quantity: 100, unit: 'ml', unitCost: 180, sellingPrice: 0, minThreshold: 20 },
-    { name: '212 VIP Oil', category: 'raw_oil', scentKey: '212_vip', quantity: 100, unit: 'ml', unitCost: 160, sellingPrice: 0, minThreshold: 20 },
-    { name: 'Reef 33 / Obsidian Oil', category: 'raw_oil', scentKey: 'reef_33', quantity: 100, unit: 'ml', unitCost: 170, sellingPrice: 0, minThreshold: 20 },
-    { name: 'Coastal Dream Oil', category: 'raw_oil', scentKey: 'coastal_dream', quantity: 100, unit: 'ml', unitCost: 150, sellingPrice: 0, minThreshold: 20 },
-    { name: 'Berries Weekend Oil', category: 'raw_oil', scentKey: 'berries_weekend', quantity: 100, unit: 'ml', unitCost: 150, sellingPrice: 0, minThreshold: 20 },
+    // 1. Core Essential Oils from NolMart SOP v3.1 (tracked in ml)
+    { name: 'Now Rave Essential Oil', category: 'raw_oil', scentKey: 'now_rave', quantity: 100, unit: 'ml', unitCost: 160, sellingPrice: 0, minThreshold: 20 },
+    { name: 'Coconut Passion Essential Oil', category: 'raw_oil', scentKey: 'coconut_passion', quantity: 100, unit: 'ml', unitCost: 150, sellingPrice: 0, minThreshold: 20 },
+    { name: 'Vanilla 28 Essential Oil', category: 'raw_oil', scentKey: 'vanilla_28', quantity: 100, unit: 'ml', unitCost: 160, sellingPrice: 0, minThreshold: 20 },
+    { name: 'Pink Chiffon Essential Oil', category: 'raw_oil', scentKey: 'pink_chiffon', quantity: 100, unit: 'ml', unitCost: 150, sellingPrice: 0, minThreshold: 20 },
+    { name: 'Tom Ford Noir Extreme Essential Oil', category: 'raw_oil', scentKey: 'noir_extreme', quantity: 100, unit: 'ml', unitCost: 180, sellingPrice: 0, minThreshold: 20 },
+    { name: 'Reef Essential Oil', category: 'raw_oil', scentKey: 'reef', quantity: 100, unit: 'ml', unitCost: 170, sellingPrice: 0, minThreshold: 20 },
+    { name: 'Burberry Weekend Essential Oil', category: 'raw_oil', scentKey: 'burberry_weekend', quantity: 100, unit: 'ml', unitCost: 160, sellingPrice: 0, minThreshold: 20 },
+    { name: 'Marshmallow Essential Oil', category: 'raw_oil', scentKey: 'marshmallow', quantity: 100, unit: 'ml', unitCost: 150, sellingPrice: 0, minThreshold: 20 },
+    { name: '212 VIP Men Essential Oil', category: 'raw_oil', scentKey: '212_vip_men', quantity: 100, unit: 'ml', unitCost: 170, sellingPrice: 0, minThreshold: 20 },
 
-    // 2. Solvents & Fixatives
-    { name: 'Cosmetic Grade Ethanol 96%', category: 'raw_solvent', subCategory: 'ethanol', quantity: 2.0, unit: 'L', unitCost: 12000, sellingPrice: 0, minThreshold: 0.5 },
+    // 2. Solvents & Fixatives (SOP 60:40 standard)
+    { name: 'Perfumery Ethanol (96%)', category: 'raw_solvent', subCategory: 'ethanol', quantity: 2.0, unit: 'L', unitCost: 12000, sellingPrice: 0, minThreshold: 0.5 },
     { name: 'Long-Lasting Perfume Fixative', category: 'raw_solvent', subCategory: 'fixative', quantity: 250, unit: 'ml', unitCost: 180, sellingPrice: 0, minThreshold: 50 },
 
     // 3. Packaging Materials
     { name: 'Empty 30ml Spray Glass Bottles', category: 'packaging', subCategory: '30ml_bottle', quantity: 24, unit: 'pcs', unitCost: 2000, sellingPrice: 0, minThreshold: 8 },
     { name: 'Empty 10ml Spray Atomizer Bottles', category: 'packaging', subCategory: '10ml_bottle', quantity: 36, unit: 'pcs', unitCost: 1200, sellingPrice: 0, minThreshold: 10 },
     { name: 'Empty 6ml Roller Glass Bottles', category: 'packaging', subCategory: '6ml_bottle', quantity: 48, unit: 'pcs', unitCost: 800, sellingPrice: 0, minThreshold: 12 },
-    { name: 'NolMart A6 Velvet/Packaging Bags', category: 'packaging', subCategory: 'bags', quantity: 80, unit: 'pcs', unitCost: 350, sellingPrice: 0, minThreshold: 20 },
+    { name: 'NolMart A6 Packaging Bags', category: 'packaging', subCategory: 'bags', quantity: 80, unit: 'pcs', unitCost: 350, sellingPrice: 0, minThreshold: 20 },
     { name: 'NolMart Waterproof Scents Labels', category: 'packaging', subCategory: 'labels', quantity: 120, unit: 'pcs', unitCost: 250, sellingPrice: 0, minThreshold: 25 }
   ];
 
@@ -240,16 +240,18 @@ export async function deleteInventoryItem(id) {
 }
 
 // ==========================================
-// DEDUCT RAW INGREDIENTS FOR ON-DEMAND BLEND
+// DEDUCT RAW INGREDIENTS FOR ON-DEMAND BLEND (SOP 60:40)
 // ==========================================
 export async function deductIngredientsForBlend({
-  primaryOilKey,
-  primaryOilMl,
+  ingredients = [],
+  primaryOilKey = null,
+  primaryOilMl = 0,
   secondaryOilKey = null,
   secondaryOilMl = 0,
-  fixativeMl,
-  ethanolMl,
-  bottleSize,
+  fixativeDrops = 3,
+  fixativeMl = 0,
+  ethanolMl = 0,
+  bottleSize = 30,
   bottleCount = 1
 }) {
   const db = await openDatabase();
@@ -261,44 +263,57 @@ export async function deductIngredientsForBlend({
     req.onsuccess = () => {
       const inventory = req.result;
 
-      // 1. Deduct Primary Oil
-      if (primaryOilKey && primaryOilMl > 0) {
-        const item = inventory.find(i => i.scentKey === primaryOilKey || i.name.toLowerCase().includes(primaryOilKey.toLowerCase()));
-        if (item) {
-          item.quantity = Math.max(0, item.quantity - (primaryOilMl * bottleCount));
-          store.put(item);
+      // 1. Deduct Oils from Ingredients Array (multi-oil blends like 2-scent or 3-scent Paradise Mist)
+      if (ingredients && ingredients.length > 0) {
+        for (const ing of ingredients) {
+          if (ing.ml > 0) {
+            const item = inventory.find(i => 
+              (ing.key && i.scentKey === ing.key) || 
+              i.name.toLowerCase().includes(ing.name.toLowerCase().replace(' essential oil', '').trim())
+            );
+            if (item) {
+              item.quantity = Math.max(0, +(item.quantity - (ing.ml * bottleCount)).toFixed(2));
+              store.put(item);
+            }
+          }
+        }
+      } else {
+        // Fallback for direct key arguments
+        if (primaryOilKey && primaryOilMl > 0) {
+          const item = inventory.find(i => i.scentKey === primaryOilKey || i.name.toLowerCase().includes(primaryOilKey.toLowerCase()));
+          if (item) {
+            item.quantity = Math.max(0, +(item.quantity - (primaryOilMl * bottleCount)).toFixed(2));
+            store.put(item);
+          }
+        }
+        if (secondaryOilKey && secondaryOilMl > 0) {
+          const item = inventory.find(i => i.scentKey === secondaryOilKey || i.name.toLowerCase().includes(secondaryOilKey.toLowerCase()));
+          if (item) {
+            item.quantity = Math.max(0, +(item.quantity - (secondaryOilMl * bottleCount)).toFixed(2));
+            store.put(item);
+          }
         }
       }
 
-      // 2. Deduct Secondary Oil (if layered blend)
-      if (secondaryOilKey && secondaryOilMl > 0) {
-        const item = inventory.find(i => i.scentKey === secondaryOilKey || i.name.toLowerCase().includes(secondaryOilKey.toLowerCase()));
-        if (item) {
-          item.quantity = Math.max(0, item.quantity - (secondaryOilMl * bottleCount));
-          store.put(item);
-        }
+      // 2. Deduct Fixative (3 drops per bottle ~ 0.15ml)
+      const fixativeDeductMl = fixativeMl > 0 ? fixativeMl : ((fixativeDrops || 3) * 0.05);
+      const fixativeItem = inventory.find(i => i.subCategory === 'fixative' || i.name.toLowerCase().includes('fixative'));
+      if (fixativeItem) {
+        fixativeItem.quantity = Math.max(0, +(fixativeItem.quantity - (fixativeDeductMl * bottleCount)).toFixed(2));
+        store.put(fixativeItem);
       }
 
-      // 3. Deduct Fixative
-      if (fixativeMl > 0) {
-        const item = inventory.find(i => i.subCategory === 'fixative' || i.name.toLowerCase().includes('fixative'));
-        if (item) {
-          item.quantity = Math.max(0, item.quantity - (fixativeMl * bottleCount));
-          store.put(item);
-        }
-      }
-
-      // 4. Deduct Ethanol (convert ml to Liters if stored in L)
+      // 3. Deduct Ethanol (convert ml to Liters if stored in L)
       if (ethanolMl > 0) {
-        const item = inventory.find(i => i.subCategory === 'ethanol' || i.name.toLowerCase().includes('ethanol'));
-        if (item) {
+        const ethanolItem = inventory.find(i => i.subCategory === 'ethanol' || i.name.toLowerCase().includes('ethanol'));
+        if (ethanolItem) {
           const litersNeeded = (ethanolMl * bottleCount) / 1000;
-          item.quantity = Math.max(0, item.quantity - litersNeeded);
-          store.put(item);
+          ethanolItem.quantity = Math.max(0, +(ethanolItem.quantity - litersNeeded).toFixed(3));
+          store.put(ethanolItem);
         }
       }
 
-      // 5. Deduct Empty Bottle
+      // 4. Deduct Empty Bottle
       const bottleSubCat = `${bottleSize}ml_bottle`;
       const bottleItem = inventory.find(i => i.subCategory === bottleSubCat || i.name.includes(`${bottleSize}ml`));
       if (bottleItem) {
@@ -306,13 +321,13 @@ export async function deductIngredientsForBlend({
         store.put(bottleItem);
       }
 
-      // 6. Deduct Label & Bag
-      const bagItem = inventory.find(i => i.subCategory === 'bags');
+      // 5. Deduct Packaging Bag & Scent Label
+      const bagItem = inventory.find(i => i.subCategory === 'bags' || i.name.toLowerCase().includes('bag'));
       if (bagItem) {
         bagItem.quantity = Math.max(0, bagItem.quantity - bottleCount);
         store.put(bagItem);
       }
-      const labelItem = inventory.find(i => i.subCategory === 'labels');
+      const labelItem = inventory.find(i => i.subCategory === 'labels' || i.name.toLowerCase().includes('label'));
       if (labelItem) {
         labelItem.quantity = Math.max(0, labelItem.quantity - bottleCount);
         store.put(labelItem);

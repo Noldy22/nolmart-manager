@@ -328,13 +328,10 @@ function initForms() {
       const notes = document.getElementById('fulfillNotes').value.trim();
 
       try {
-        // 1. Deduct raw materials from stock
+        // 1. Deduct raw materials from stock based on SOP 60:40 formula
         await deductIngredientsForBlend({
-          primaryOilKey: m.primaryOilKey,
-          primaryOilMl: m.primaryOilMl,
-          secondaryOilKey: m.secondaryOilKey,
-          secondaryOilMl: m.secondaryOilMl,
-          fixativeMl: m.fixativeMl,
+          ingredients: m.ingredients,
+          fixativeDrops: m.fixativeDrops,
           ethanolMl: m.ethanolMl,
           bottleSize: m.size,
           bottleCount: 1
@@ -757,23 +754,29 @@ function initSOPLab() {
   const sizeSelect = document.getElementById('sopSizeSelect');
 
   if (recipeSelect) {
+    const flagshipScents = RECIPES_CATALOG.filter(r => r.group === 'Flagship Scents');
     const signatureBlends = RECIPES_CATALOG.filter(r => r.group === 'Signature Blends');
-    const singleNotes = RECIPES_CATALOG.filter(r => r.group === 'Single Note Scents');
+    const pureScents = RECIPES_CATALOG.filter(r => r.group === 'Pure Scents');
     const customBlends = RECIPES_CATALOG.filter(r => r.group === 'Custom Blends');
 
     let html = '';
+    if (flagshipScents.length > 0) {
+      html += `<optgroup label="🏆 Flagship Signature Scents (Proprietary)">` +
+        flagshipScents.map(r => `<option value="${r.id}">${r.name} — ${r.category}</option>`).join('') +
+        `</optgroup>`;
+    }
     if (signatureBlends.length > 0) {
-      html += `<optgroup label="🌟 Signature Blends (SOP)">` +
+      html += `<optgroup label="🌟 Finalized Signature Blends (SOP)">` +
         signatureBlends.map(r => `<option value="${r.id}">${r.name}</option>`).join('') +
         `</optgroup>`;
     }
-    if (singleNotes.length > 0) {
-      html += `<optgroup label="💎 Single Note Scents (SOP)">` +
-        singleNotes.map(r => `<option value="${r.id}">${r.name}</option>`).join('') +
+    if (pureScents.length > 0) {
+      html += `<optgroup label="💎 Pure Scents (The 9 Core Scents)">` +
+        pureScents.map(r => `<option value="${r.id}">${r.name} — ${r.category}</option>`).join('') +
         `</optgroup>`;
     }
     if (customBlends.length > 0) {
-      html += `<optgroup label="🧪 Custom Blends">` +
+      html += `<optgroup label="🧪 Custom Bespoke Blends">` +
         customBlends.map(r => `<option value="${r.id}">${r.name}</option>`).join('') +
         `</optgroup>`;
     }
@@ -805,89 +808,73 @@ function renderSOPLab() {
   document.getElementById('sopPriceBadge').textContent = formatTZS(m.sellingPrice);
   document.getElementById('sopSyringeSpec').textContent = m.syringeSpec;
 
-  // Render Measurements Grid
+  const restBadgeEl = document.getElementById('sopRestBadge');
+  if (restBadgeEl) {
+    restBadgeEl.textContent = `⏳ Rest: ${m.restTime}`;
+  }
+
+  // Render Measurements Grid based strictly on 60:40 formula (or 83:17 for 6ml)
   const measGrid = document.getElementById('sopMeasurementsGrid');
   if (measGrid) {
-    let rows = `
-      <div class="meas-card">
-        <span class="meas-label">1. ${m.primaryOilName}</span>
-        <span class="meas-value text-amber">${m.primaryOilMl} ml</span>
-      </div>
-    `;
-
-    if (m.secondaryOilName) {
+    let rows = '';
+    m.ingredients.forEach((ing, idx) => {
       rows += `
         <div class="meas-card">
-          <span class="meas-label">2. ${m.secondaryOilName}</span>
-          <span class="meas-value text-amber">${m.secondaryOilMl} ml</span>
+          <span class="meas-label">${idx + 1}. ${ing.name} (${ing.percentage}%)</span>
+          <span class="meas-value text-amber">${ing.ml} ml</span>
         </div>
       `;
-    }
+    });
 
+    const carrierLabel = m.size === 6 ? 'Ethanol (17% Carrier)' : 'Perfumery Ethanol (40% Carrier)';
     rows += `
       <div class="meas-card">
-        <span class="meas-label">Fixative (Long-Lasting)</span>
-        <span class="meas-value text-cyan">${m.fixativeMl} ml</span>
+        <span class="meas-label">${carrierLabel}</span>
+        <span class="meas-value text-emerald">${m.ethanolMl} ml</span>
       </div>
       <div class="meas-card">
-        <span class="meas-label">Cosmetic Ethanol (96%)</span>
-        <span class="meas-value text-emerald">${m.ethanolMl > 0 ? `${m.ethanolMl} ml` : '0 ml (Pure Roller)'}</span>
+        <span class="meas-label">Fixative (Long-Lasting Anchor)</span>
+        <span class="meas-value text-cyan">${m.fixativeDrops} drops</span>
       </div>
     `;
     measGrid.innerHTML = rows;
   }
 
-  // Render Step-by-Step SOP List
+  // Render authoritative step-by-step SOP compounding list from NolMart SOP v3.1
   const stepsList = document.getElementById('sopStepsList');
   if (stepsList) {
     let stepCount = 1;
     let steps = `
       <div class="sop-step-item">
         <div class="sop-step-num">${stepCount++}</div>
-        <div><strong>Bottle Sanitation:</strong> Inspect clean ${m.size}ml glass bottle. Ensure syringe and needle are dry and dust-free.</div>
+        <div><strong>Clean Work Area & Bottle Inspection:</strong> Work on a dry, sanitized flat surface. Inspect ${m.packagingName} for micro-cracks or dust. Verify syringe and needle are completely dry.</div>
       </div>
       <div class="sop-step-item">
         <div class="sop-step-num">${stepCount++}</div>
-        <div><strong>Draw ${m.primaryOilName}:</strong> Using calibrated syringe, draw exactly <strong>${m.primaryOilMl} ml</strong> of oil and inject into the bottle base.</div>
+        <div><strong>Syringe Allocation:</strong> Use dedicated syringes for pure oils and a separate clean syringe for ethanol to prevent cross-contamination.</div>
       </div>
     `;
 
-    if (m.secondaryOilName) {
+    if (m.ingredients.length === 1) {
       steps += `
         <div class="sop-step-item">
           <div class="sop-step-num">${stepCount++}</div>
-          <div><strong>Draw ${m.secondaryOilName}:</strong> Measure exactly <strong>${m.secondaryOilMl} ml</strong> and add directly into the blend.</div>
-        </div>
-      `;
-    }
-
-    steps += `
-      <div class="sop-step-item">
-        <div class="sop-step-num">${stepCount++}</div>
-        <div><strong>Fixative Addition:</strong> Measure <strong>${m.fixativeMl} ml</strong> of Fixative with dropper/syringe. Dispense into the oils and swirl for 10 seconds to bond molecules.</div>
-      </div>
-    `;
-
-    if (m.size === 6) {
-      steps += `
-        <div class="sop-step-item">
-          <div class="sop-step-num">${stepCount++}</div>
-          <div><strong>No Ethanol for Rollers:</strong> Roller format uses pure oil + fixative to ensure smooth rolling without leaking on skin.</div>
-        </div>
-        <div class="sop-step-item">
-          <div class="sop-step-num">${stepCount++}</div>
-          <div><strong>Insert Rollerball:</strong> Press the metal rollerball housing firmly into the glass neck. Screw the cap tight.</div>
+          <div><strong>Draw Pure Essential Oil (${m.size === 6 ? '83%' : '60%'}):</strong> Draw exactly <strong>${m.ingredients[0].ml} ml</strong> of ${m.ingredients[0].name} using the calibrated oil syringe and inject into the bottle.</div>
         </div>
       `;
     } else {
+      m.ingredients.forEach(ing => {
+        steps += `
+          <div class="sop-step-item">
+            <div class="sop-step-num">${stepCount++}</div>
+            <div><strong>Draw ${ing.name} (${ing.percentage}% of oil volume):</strong> Draw exactly <strong>${ing.ml} ml</strong> and inject into the mixing bottle.</div>
+          </div>
+        `;
+      });
       steps += `
         <div class="sop-step-item">
           <div class="sop-step-num">${stepCount++}</div>
-          <div><strong>Top with Cosmetic Ethanol:</strong> Inject <strong>${m.ethanolMl} ml</strong> of Cosmetic Ethanol 96% up to the bottle's shoulder line.</div>
-        </div>
-        <div class="sop-step-item">
-          <div class="sop-step-num">${stepCount++}</div>
-          <div><strong>Atomizer Crimp/Cap:</strong> Screw and tighten the spray atomizer firmly using the cap tightener to prevent leakage.</div>
+          <div><strong>Pre-Blend Oils:</strong> Swirl the combined pure oils gently for 1–2 minutes to fully integrate fragrance molecules before carrier addition.</div>
         </div>
       `;
     }
@@ -895,7 +882,23 @@ function renderSOPLab() {
     steps += `
       <div class="sop-step-item">
         <div class="sop-step-num">${stepCount++}</div>
-        <div><strong>Homogenize & Inspect:</strong> Gently invert 5 times. Check for clarity. Affix waterproof NolMart label and slip into velvet A6 packaging bag.</div>
+        <div><strong>Add Perfumery Ethanol (${m.size === 6 ? '17%' : '40%'}):</strong> Using the dedicated ethanol syringe, measure and slowly inject exactly <strong>${m.ethanolMl} ml</strong> of Ethanol into the bottle while swirling gently.</div>
+      </div>
+      <div class="sop-step-item">
+        <div class="sop-step-num">${stepCount++}</div>
+        <div><strong>Maceration & Marriage Period (${m.restTime}):</strong> Allow the solution to rest undisturbed for <strong>${m.restTime}</strong> so the carrier and aromatic oils marry properly.</div>
+      </div>
+      <div class="sop-step-item">
+        <div class="sop-step-num">${stepCount++}</div>
+        <div><strong>Add Fixative Drops LAST:</strong> Using the precision dropper, add <strong>exactly ${m.fixativeDrops} drops</strong> of Long-Lasting Fixative directly into the bottle. (Never add fixative before oils and ethanol are combined).</div>
+      </div>
+      <div class="sop-step-item">
+        <div class="sop-step-num">${stepCount++}</div>
+        <div><strong>Cap & Homogenize (30 seconds):</strong> Cap tightly and shake gently for 30 seconds. Conduct an inner-wrist skin-patch test before releasing to the client.</div>
+      </div>
+      <div class="sop-step-item">
+        <div class="sop-step-num">${stepCount++}</div>
+        <div><strong>Label & Deliver:</strong> Affix waterproof NolMart label (${m.recipe.name}, ${m.size}ml) and package into a Mifuko A6 bag for the client.</div>
       </div>
     `;
 
