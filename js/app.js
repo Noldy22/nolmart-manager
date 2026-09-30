@@ -8,13 +8,14 @@ import {
   addInventoryItem,
   adjustStock,
   deleteInventoryItem,
+  deductIngredientsForBlend,
   getFinancialSummary,
   clearAllLocalData
 } from './db.js';
 
 import {
-  calculatePerfumeBatch,
-  saveFormulationBatch
+  RECIPES_CATALOG,
+  getSOPMeasurements
 } from './calculator.js';
 
 import {
@@ -31,6 +32,9 @@ let state = {
   currentInvFilter: 'all',
   inventory: [],
   transactions: [],
+  selectedRecipeId: RECIPES_CATALOG[0].id,
+  selectedBottleSize: 30,
+  activeSOPMeasurements: null,
   deferredInstallPrompt: null
 };
 
@@ -54,6 +58,17 @@ function formatTZS(amount) {
   return `${num.toLocaleString('en-TZ')} TZS`;
 }
 
+function escapeHTML(str) {
+  if (!str) return '';
+  return str.replace(/[&<>'"]/g, tag => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;'
+  }[tag] || tag));
+}
+
 // ==========================================
 // PWA INSTALLATION & SERVICE WORKER
 // ==========================================
@@ -61,8 +76,8 @@ function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('NolMart PWA ServiceWorker registered with scope:', reg.scope))
-        .catch(err => console.log('ServiceWorker registration failed:', err));
+        .then(reg => console.log('NolMart PWA ServiceWorker ready:', reg.scope))
+        .catch(err => console.log('ServiceWorker failed:', err));
     });
   }
 
@@ -78,7 +93,7 @@ function initPWA() {
       if (state.deferredInstallPrompt) {
         state.deferredInstallPrompt.prompt();
         const { outcome } = await state.deferredInstallPrompt.userChoice;
-        console.log(`User response to install prompt: ${outcome}`);
+        console.log(`User install outcome: ${outcome}`);
         state.deferredInstallPrompt = null;
         installBtn.style.display = 'none';
       }
@@ -91,7 +106,6 @@ function initPWA() {
 // ==========================================
 function initNavigation() {
   const navButtons = document.querySelectorAll('.nav-item');
-  const tabViews = document.querySelectorAll('.tab-view');
 
   navButtons.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -100,15 +114,8 @@ function initNavigation() {
     });
   });
 
-  const viewAllTxBtn = document.getElementById('viewAllTxBtn');
-  if (viewAllTxBtn) {
-    viewAllTxBtn.addEventListener('click', () => switchTab('tab-transactions'));
-  }
-
-  const goToInvBtn = document.getElementById('goToInventoryFromAlert');
-  if (goToInvBtn) {
-    goToInvBtn.addEventListener('click', () => switchTab('tab-inventory'));
-  }
+  document.getElementById('viewAllTxBtn')?.addEventListener('click', () => switchTab('tab-transactions'));
+  document.getElementById('goToInventoryFromAlert')?.addEventListener('click', () => switchTab('tab-inventory'));
 }
 
 function switchTab(tabId) {
@@ -124,20 +131,18 @@ function switchTab(tabId) {
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  // Re-render data for the newly active tab
   if (tabId === 'tab-dashboard') renderDashboard();
   else if (tabId === 'tab-transactions') renderTransactionsTab();
   else if (tabId === 'tab-inventory') renderInventoryTab();
-  else if (tabId === 'tab-calculator') updateCalculatorRecipe();
+  else if (tabId === 'tab-calculator') renderSOPLab();
 }
 
 // ==========================================
-// MODAL CONTROLS
+// MODALS
 // ==========================================
 function initModals() {
   // Open Sale Modal
   document.getElementById('openSaleModalBtn')?.addEventListener('click', () => {
-    populateInventorySaleSelect();
     const dateInput = document.getElementById('saleDate');
     if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
     openModal('saleModal');
@@ -155,6 +160,15 @@ function initModals() {
     openModal('newItemModal');
   });
 
+  // Open Fulfill Order Modal from SOP Lab
+  document.getElementById('openFulfillOrderBtn')?.addEventListener('click', () => {
+    if (!state.activeSOPMeasurements) return;
+    const m = state.activeSOPMeasurements;
+    document.getElementById('fulfillItemSummary').textContent = `${m.recipe.name} (${m.size}ml)`;
+    document.getElementById('fulfillAmountSummary').textContent = `Sale Price: ${formatTZS(m.sellingPrice)}`;
+    openModal('fulfillModal');
+  });
+
   // Close modals
   document.querySelectorAll('[data-close-modal]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -163,14 +177,22 @@ function initModals() {
     });
   });
 
-  // Click outside modal content to close
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) {
-        overlay.classList.remove('open');
-      }
+      if (e.target === overlay) overlay.classList.remove('open');
     });
   });
+
+  // Sale Modal Type selector changes default price & description
+  const saleTypeSelect = document.getElementById('saleProductTypeSelect');
+  if (saleTypeSelect) {
+    saleTypeSelect.addEventListener('change', () => {
+      const opt = saleTypeSelect.options[saleTypeSelect.selectedIndex];
+      if (opt.value !== 'custom') {
+        document.getElementById('saleAmount').value = opt.value;
+      }
+    });
+  }
 }
 
 function openModal(modalId) {
@@ -183,44 +205,6 @@ function closeModal(modalId) {
   if (modal) modal.classList.remove('open');
 }
 
-// Populate product dropdown in Sale Modal
-function populateInventorySaleSelect() {
-  const select = document.getElementById('saleInventorySelect');
-  if (!select) return;
-
-  select.innerHTML = '<option value="">-- Manual Item Entry --</option>';
-  const finishedItems = state.inventory.filter(i => i.category === 'finished_perfume' || i.category === 'tech_gadget');
-
-  finishedItems.forEach(item => {
-    const opt = document.createElement('option');
-    opt.value = item.id;
-    opt.textContent = `${item.name} (Stock: ${item.quantity} | ${formatTZS(item.sellingPrice)})`;
-    opt.dataset.price = item.sellingPrice || 0;
-    opt.dataset.name = item.name;
-    select.appendChild(opt);
-  });
-
-  select.onchange = () => {
-    const selected = select.options[select.selectedIndex];
-    if (selected.value) {
-      document.getElementById('saleDescription').value = selected.dataset.name || '';
-      const unitPrice = parseFloat(selected.dataset.price) || 0;
-      const qty = parseInt(document.getElementById('saleQuantity').value, 10) || 1;
-      document.getElementById('saleAmount').value = unitPrice * qty;
-    }
-  };
-
-  const qtyInput = document.getElementById('saleQuantity');
-  qtyInput.oninput = () => {
-    const selected = select.options[select.selectedIndex];
-    if (selected && selected.value) {
-      const unitPrice = parseFloat(selected.dataset.price) || 0;
-      const qty = parseInt(qtyInput.value, 10) || 1;
-      document.getElementById('saleAmount').value = unitPrice * qty;
-    }
-  };
-}
-
 // ==========================================
 // FORM SUBMISSIONS
 // ==========================================
@@ -230,8 +214,6 @@ function initForms() {
   if (saleForm) {
     saleForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const invSelect = document.getElementById('saleInventorySelect');
-      const invItemId = invSelect.value ? parseInt(invSelect.value, 10) : null;
       const description = document.getElementById('saleDescription').value.trim();
       const quantity = parseInt(document.getElementById('saleQuantity').value, 10) || 1;
       const amount = parseFloat(document.getElementById('saleAmount').value) || 0;
@@ -244,8 +226,7 @@ function initForms() {
       try {
         await addTransaction({
           type: 'income',
-          category: invItemId ? 'perfume_sale' : 'manual_sale',
-          inventoryItemId: invItemId,
+          category: 'perfume_sale',
           description,
           quantity,
           amount,
@@ -299,7 +280,58 @@ function initForms() {
     });
   }
 
-  // 3. Submit New Inventory Item
+  // 3. Fulfill Order from SOP Lab (Deducts exact raw materials & records sale)
+  const fulfillForm = document.getElementById('fulfillForm');
+  if (fulfillForm) {
+    fulfillForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!state.activeSOPMeasurements) return;
+      const m = state.activeSOPMeasurements;
+
+      const customerName = document.getElementById('fulfillCustomerName').value.trim();
+      const customerPhone = document.getElementById('fulfillCustomerPhone').value.trim();
+      const paymentMethod = document.getElementById('fulfillPaymentMethod').value;
+      const notes = document.getElementById('fulfillNotes').value.trim();
+
+      try {
+        // 1. Deduct raw materials from stock
+        await deductIngredientsForBlend({
+          primaryOilKey: m.primaryOilKey,
+          primaryOilMl: m.primaryOilMl,
+          secondaryOilKey: m.secondaryOilKey,
+          secondaryOilMl: m.secondaryOilMl,
+          fixativeMl: m.fixativeMl,
+          ethanolMl: m.ethanolMl,
+          bottleSize: m.size,
+          bottleCount: 1
+        });
+
+        // 2. Record sale into transactions ledger
+        await addTransaction({
+          type: 'income',
+          category: `perfume_${m.size}ml`,
+          description: `${m.recipe.name} (${m.size}ml)`,
+          quantity: 1,
+          amount: m.sellingPrice,
+          paymentMethod,
+          customerName,
+          customerPhone,
+          date: new Date().toISOString().split('T')[0],
+          notes: `Blended on-demand via SOP. ${notes}`
+        });
+
+        closeModal('fulfillModal');
+        fulfillForm.reset();
+        showToast(`Order blended & stock deducted! +${formatTZS(m.sellingPrice)}`, 'success');
+        await loadAllData();
+        switchTab('tab-dashboard');
+      } catch (err) {
+        showToast('Error fulfilling order: ' + err.message, 'error');
+      }
+    });
+  }
+
+  // 4. Add Raw Stock Item
   const newItemForm = document.getElementById('newItemForm');
   if (newItemForm) {
     newItemForm.addEventListener('submit', async (e) => {
@@ -309,8 +341,6 @@ function initForms() {
       const unit = document.getElementById('newItemUnit').value.trim();
       const quantity = parseFloat(document.getElementById('newItemQty').value) || 0;
       const minThreshold = parseFloat(document.getElementById('newItemThreshold').value) || 1;
-      const unitCost = parseFloat(document.getElementById('newItemCost').value) || 0;
-      const sellingPrice = parseFloat(document.getElementById('newItemPrice').value) || 0;
 
       try {
         await addInventoryItem({
@@ -319,28 +349,27 @@ function initForms() {
           unit,
           quantity,
           minThreshold,
-          unitCost,
-          sellingPrice
+          unitCost: 0,
+          sellingPrice: 0
         });
 
         closeModal('newItemModal');
         newItemForm.reset();
-        showToast(`Item "${name}" added to stock!`, 'success');
+        showToast(`Stock item "${name}" added!`, 'success');
         await loadAllData();
       } catch (err) {
-        showToast('Error adding item: ' + err.message, 'error');
+        showToast('Error adding stock: ' + err.message, 'error');
       }
     });
   }
 }
 
 // ==========================================
-// DATA RENDERING (DASHBOARD)
+// DASHBOARD RENDERING
 // ==========================================
 async function renderDashboard() {
   const summary = await getFinancialSummary(state.currentPeriod);
 
-  // Update Hero Card & Stats
   document.getElementById('statCashInHand').textContent = formatTZS(summary.expectedCashInHand);
   document.getElementById('statTotalSales').textContent = formatTZS(summary.totalSales);
   document.getElementById('statSalesCount').textContent = `${summary.totalTransactions} transactions in period`;
@@ -349,7 +378,6 @@ async function renderDashboard() {
   document.getElementById('statOwnersDraw').textContent = formatTZS(summary.ownersDraw);
   document.getElementById('statProfitBadge').textContent = `${summary.profitMargin}% Margin`;
 
-  // Net Profit coloring
   const netProfitEl = document.getElementById('statNetProfit');
   if (summary.netProfit >= 0) {
     netProfitEl.className = 'stat-value text-emerald';
@@ -357,30 +385,29 @@ async function renderDashboard() {
     netProfitEl.className = 'stat-value text-rose';
   }
 
-  // Money Channels
   document.getElementById('methodCash').textContent = formatTZS(summary.paymentBreakdown.cash);
   document.getElementById('methodMpesa').textContent = formatTZS(summary.paymentBreakdown.mpesa);
   document.getElementById('methodAirtel').textContent = formatTZS(summary.paymentBreakdown.airtel);
   document.getElementById('methodTigo').textContent = formatTZS(summary.paymentBreakdown.tigo);
   document.getElementById('methodBank').textContent = formatTZS(summary.paymentBreakdown.bank);
 
-  // Low Stock Banner Check
-  const lowStockItems = state.inventory.filter(i => (i.quantity || 0) <= (i.minThreshold || 0));
+  // Low stock banner
+  const lowStock = state.inventory.filter(i => (i.quantity || 0) <= (i.minThreshold || 0));
   const banner = document.getElementById('lowStockBanner');
-  if (lowStockItems.length > 0) {
+  if (lowStock.length > 0) {
     banner.classList.remove('hidden');
     document.getElementById('lowStockCountText').textContent =
-      `${lowStockItems.length} item${lowStockItems.length > 1 ? 's' : ''} running low on stock (${lowStockItems.map(i => i.name).slice(0, 2).join(', ')}${lowStockItems.length > 2 ? '...' : ''})!`;
+      `${lowStock.length} raw item${lowStock.length > 1 ? 's' : ''} running low (${lowStock.map(i => i.name).slice(0, 2).join(', ')})!`;
   } else {
     banner.classList.add('hidden');
   }
 
-  // Recent Transactions (Last 5)
+  // Recent transactions
   const recentList = document.getElementById('recentTxList');
   if (recentList) {
     const recent = state.transactions.slice(0, 5);
     if (recent.length === 0) {
-      recentList.innerHTML = '<div class="empty-state">No transactions recorded yet. Tap "+ Record Sale" or "- Record Expense" above!</div>';
+      recentList.innerHTML = '<div class="empty-state" style="padding: 16px; font-size: 0.8rem; text-align: center; color: var(--text-muted);">No transactions recorded yet. Tap "+ Record Sale" above!</div>';
     } else {
       recentList.innerHTML = recent.map(t => renderTxItemHTML(t)).join('');
       attachTxDeleteListeners();
@@ -407,9 +434,9 @@ function renderTxItemHTML(t) {
           </span>
         </div>
       </div>
-      <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
         <span class="tx-amount">${sign}${formatTZS(t.amount)}</span>
-        <button class="btn-stock-adjust delete-tx-btn" data-tx-id="${t.id}" title="Delete Transaction" style="color: var(--text-muted);">&times;</button>
+        <button class="btn-stock-adjust delete-tx-btn" data-tx-id="${t.id}" title="Delete" style="color: var(--text-muted); width: 26px; height: 26px; font-size: 0.85rem;">&times;</button>
       </div>
     </div>
   `;
@@ -420,7 +447,7 @@ function attachTxDeleteListeners() {
     btn.onclick = async (e) => {
       e.stopPropagation();
       const id = parseInt(btn.dataset.txId, 10);
-      if (confirm('Delete this transaction record?')) {
+      if (confirm('Delete this transaction?')) {
         await deleteTransaction(id);
         showToast('Transaction deleted', 'info');
         await loadAllData();
@@ -430,7 +457,7 @@ function attachTxDeleteListeners() {
 }
 
 // ==========================================
-// TRANSACTIONS TAB
+// TRANSACTIONS (LEDGER) TAB
 // ==========================================
 function renderTransactionsTab() {
   const container = document.getElementById('fullTxList');
@@ -440,10 +467,7 @@ function renderTransactionsTab() {
   const typeFilter = document.getElementById('txTypeFilter')?.value || 'all';
 
   let list = state.transactions;
-
-  if (typeFilter !== 'all') {
-    list = list.filter(t => t.type === typeFilter);
-  }
+  if (typeFilter !== 'all') list = list.filter(t => t.type === typeFilter);
 
   if (searchTerm) {
     list = list.filter(t =>
@@ -454,7 +478,7 @@ function renderTransactionsTab() {
   }
 
   if (list.length === 0) {
-    container.innerHTML = '<div class="empty-state">No matching transactions found.</div>';
+    container.innerHTML = '<div class="empty-state" style="padding: 20px; font-size: 0.82rem; text-align: center; color: var(--text-muted);">No matching transactions found.</div>';
     return;
   }
 
@@ -463,7 +487,7 @@ function renderTransactionsTab() {
 }
 
 // ==========================================
-// INVENTORY TAB
+// INVENTORY TAB (PERFUME ONLY)
 // ==========================================
 function renderInventoryTab() {
   const grid = document.getElementById('inventoryGrid');
@@ -475,7 +499,7 @@ function renderInventoryTab() {
   }
 
   if (items.length === 0) {
-    grid.innerHTML = '<div class="empty-state">No inventory items in this category. Tap "+ Add Item" above.</div>';
+    grid.innerHTML = '<div class="empty-state" style="padding: 20px; font-size: 0.82rem; text-align: center; color: var(--text-muted); grid-column: 1/-1;">No stock items in this category. Tap "+ Add Item" above.</div>';
     return;
   }
 
@@ -489,26 +513,21 @@ function renderInventoryTab() {
             <span class="inv-badge ${isLow ? 'badge-low' : 'badge-ok'}">${isLow ? 'LOW STOCK' : 'IN STOCK'}</span>
           </div>
           <div class="inv-stock-number ${isLow ? 'text-amber' : ''}">
-            ${item.quantity} <span style="font-size: 0.85rem; color: var(--text-muted);">${item.unit || 'units'}</span>
-          </div>
-          <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px;">
-            ${item.sellingPrice > 0 ? `Selling: <strong class="text-emerald">${formatTZS(item.sellingPrice)}</strong>` : ''}
-            ${item.unitCost > 0 ? ` | Cost: ${formatTZS(item.unitCost)}` : ''}
+            ${item.quantity} <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">${item.unit || 'units'}</span>
           </div>
         </div>
         <div class="inv-footer">
-          <span>Min Alert: ${item.minThreshold || 1}</span>
+          <span>Min Alert: ${item.minThreshold || 1} ${item.unit || ''}</span>
           <div class="inv-actions">
-            <button class="btn-stock-adjust btn-decrement-stock" data-id="${item.id}" title="Decrease 1">-</button>
-            <button class="btn-stock-adjust btn-increment-stock" data-id="${item.id}" title="Increase 1">+</button>
-            <button class="btn-stock-adjust btn-delete-stock" data-id="${item.id}" title="Delete Item" style="color: var(--rose);">&times;</button>
+            <button class="btn-stock-adjust btn-decrement-stock" data-id="${item.id}" title="Decrease">-</button>
+            <button class="btn-stock-adjust btn-increment-stock" data-id="${item.id}" title="Increase">+</button>
+            <button class="btn-stock-adjust btn-delete-stock" data-id="${item.id}" title="Delete" style="color: var(--rose); font-size: 0.9rem;">&times;</button>
           </div>
         </div>
       </div>
     `;
   }).join('');
 
-  // Stock action listeners
   document.querySelectorAll('.btn-increment-stock').forEach(btn => {
     btn.onclick = async () => {
       const id = parseInt(btn.dataset.id, 10);
@@ -528,9 +547,9 @@ function renderInventoryTab() {
   document.querySelectorAll('.btn-delete-stock').forEach(btn => {
     btn.onclick = async () => {
       const id = parseInt(btn.dataset.id, 10);
-      if (confirm('Delete this item from inventory?')) {
+      if (confirm('Delete this item from stock?')) {
         await deleteInventoryItem(id);
-        showToast('Item deleted', 'info');
+        showToast('Stock item deleted', 'info');
         await loadAllData();
       }
     };
@@ -538,112 +557,162 @@ function renderInventoryTab() {
 }
 
 // ==========================================
-// PERFUME CALCULATOR LAB
+// SOP LAB (ON-DEMAND FORMULATION GUIDE)
 // ==========================================
-function initCalculator() {
-  const bottleSizeSelect = document.getElementById('calcBottleSize');
-  const countInput = document.getElementById('calcBottleCount');
-  const oilPercentInput = document.getElementById('calcOilPercent');
-  const fixativePercentInput = document.getElementById('calcFixativePercent');
+function initSOPLab() {
+  const recipeSelect = document.getElementById('sopRecipeSelect');
+  const sizeSelect = document.getElementById('sopSizeSelect');
 
-  const inputs = [bottleSizeSelect, countInput, oilPercentInput, fixativePercentInput];
-  inputs.forEach(input => {
-    if (input) input.addEventListener('input', updateCalculatorRecipe);
-  });
+  if (recipeSelect) {
+    recipeSelect.innerHTML = RECIPES_CATALOG.map(r => `
+      <option value="${r.id}">${r.name} (${r.category})</option>
+    `).join('');
 
-  const saveBatchBtn = document.getElementById('saveBatchToStockBtn');
-  if (saveBatchBtn) {
-    saveBatchBtn.addEventListener('click', async () => {
-      const scentName = document.getElementById('calcScentName').value.trim();
-      const bottleSize = parseInt(bottleSizeSelect.value, 10) || 30;
-      const count = parseInt(countInput.value, 10) || 1;
-      const oilPercent = parseFloat(oilPercentInput.value) || 25;
-      const fixativePercent = parseFloat(fixativePercentInput.value) || 5;
+    recipeSelect.addEventListener('change', () => {
+      state.selectedRecipeId = recipeSelect.value;
+      renderSOPLab();
+    });
+  }
 
-      const calc = calculatePerfumeBatch({
-        bottleSizeMl: bottleSize,
-        bottleCount: count,
-        oilPercentage: oilPercent,
-        fixativePercentage: fixativePercent
-      });
-
-      try {
-        await saveFormulationBatch({
-          scentName,
-          bottleSize: `${bottleSize}ml`,
-          bottleCount: count,
-          totalVolume: calc.totalVolumeMl,
-          oilVolume: calc.oilVolumeMl,
-          fixativeVolume: calc.fixativeVolumeMl,
-          ethanolVolume: calc.ethanolVolumeMl,
-          oilPercentage: oilPercent,
-          fixativePercentage: fixativePercent,
-          costPerBottle: calc.costPerBottle
-        }, true);
-
-        showToast(`Batch of ${count}x ${bottleSize}ml "${scentName}" added to stock!`, 'success');
-        await loadAllData();
-        switchTab('tab-inventory');
-      } catch (err) {
-        showToast('Error saving batch: ' + err.message, 'error');
-      }
+  if (sizeSelect) {
+    sizeSelect.addEventListener('change', () => {
+      state.selectedBottleSize = parseInt(sizeSelect.value, 10);
+      renderSOPLab();
     });
   }
 }
 
-function updateCalculatorRecipe() {
-  const bottleSize = parseInt(document.getElementById('calcBottleSize')?.value, 10) || 30;
-  const count = parseInt(document.getElementById('calcBottleCount')?.value, 10) || 10;
-  const oilPercent = parseFloat(document.getElementById('calcOilPercent')?.value) || 25;
-  const fixativePercent = parseFloat(document.getElementById('calcFixativePercent')?.value) || 5;
+function renderSOPLab() {
+  const m = getSOPMeasurements(state.selectedRecipeId, state.selectedBottleSize);
+  state.activeSOPMeasurements = m;
 
-  const ethanolPercent = Math.max(0, 100 - oilPercent - fixativePercent);
-  const ethanolEl = document.getElementById('calcEthanolPercent');
-  if (ethanolEl) ethanolEl.value = `${ethanolPercent}%`;
+  // Header badges
+  document.getElementById('sopCardTitle').textContent = m.recipe.name;
+  document.getElementById('sopCardCategory').textContent = `${m.recipe.category} • ${m.recipe.description}`;
+  document.getElementById('sopPackageBadge').textContent = m.size === 6 ? '6ml Roller' : `${m.size}ml Spray`;
+  document.getElementById('sopPriceBadge').textContent = formatTZS(m.sellingPrice);
+  document.getElementById('sopSyringeSpec').textContent = m.syringeSpec;
 
-  const calc = calculatePerfumeBatch({
-    bottleSizeMl: bottleSize,
-    bottleCount: count,
-    oilPercentage: oilPercent,
-    fixativePercentage: fixativePercent
-  });
+  // Render Measurements Grid
+  const measGrid = document.getElementById('sopMeasurementsGrid');
+  if (measGrid) {
+    let rows = `
+      <div class="meas-card">
+        <span class="meas-label">1. ${m.primaryOilName}</span>
+        <span class="meas-value text-amber">${m.primaryOilMl} ml</span>
+      </div>
+    `;
 
-  // Update UI Elements
-  document.getElementById('resTotalVolume').textContent = `${calc.totalVolumeMl} ml`;
-  document.getElementById('resOilVolume').textContent = `${calc.oilVolumeMl} ml`;
-  document.getElementById('resFixativeVolume').textContent = `${calc.fixativeVolumeMl} ml`;
-  document.getElementById('resEthanolVolume').textContent = `${calc.ethanolVolumeMl} ml`;
+    if (m.secondaryOilName) {
+      rows += `
+        <div class="meas-card">
+          <span class="meas-label">2. ${m.secondaryOilName}</span>
+          <span class="meas-value text-amber">${m.secondaryOilMl} ml</span>
+        </div>
+      `;
+    }
 
-  document.getElementById('resTotalCost').textContent = formatTZS(calc.totalBatchCost);
-  document.getElementById('resCostPerBottle').textContent = formatTZS(calc.costPerBottle);
-  document.getElementById('resTotalRevenue').textContent = formatTZS(calc.totalRevenue);
-  document.getElementById('resNetProfit').textContent = `${formatTZS(calc.totalNetProfit)} (${calc.profitMarginPercent}% Margin)`;
+    rows += `
+      <div class="meas-card">
+        <span class="meas-label">Fixative (Long-Lasting)</span>
+        <span class="meas-value text-cyan">${m.fixativeMl} ml</span>
+      </div>
+      <div class="meas-card">
+        <span class="meas-label">Cosmetic Ethanol (96%)</span>
+        <span class="meas-value text-emerald">${m.ethanolMl > 0 ? `${m.ethanolMl} ml` : '0 ml (Pure Roller)'}</span>
+      </div>
+    `;
+    measGrid.innerHTML = rows;
+  }
+
+  // Render Step-by-Step SOP List
+  const stepsList = document.getElementById('sopStepsList');
+  if (stepsList) {
+    let stepCount = 1;
+    let steps = `
+      <div class="sop-step-item">
+        <div class="sop-step-num">${stepCount++}</div>
+        <div><strong>Bottle Sanitation:</strong> Inspect clean ${m.size}ml glass bottle. Ensure syringe and needle are dry and dust-free.</div>
+      </div>
+      <div class="sop-step-item">
+        <div class="sop-step-num">${stepCount++}</div>
+        <div><strong>Draw ${m.primaryOilName}:</strong> Using calibrated syringe, draw exactly <strong>${m.primaryOilMl} ml</strong> of oil and inject into the bottle base.</div>
+      </div>
+    `;
+
+    if (m.secondaryOilName) {
+      steps += `
+        <div class="sop-step-item">
+          <div class="sop-step-num">${stepCount++}</div>
+          <div><strong>Draw ${m.secondaryOilName}:</strong> Measure exactly <strong>${m.secondaryOilMl} ml</strong> and add directly into the blend.</div>
+        </div>
+      `;
+    }
+
+    steps += `
+      <div class="sop-step-item">
+        <div class="sop-step-num">${stepCount++}</div>
+        <div><strong>Fixative Addition:</strong> Measure <strong>${m.fixativeMl} ml</strong> of Fixative with dropper/syringe. Dispense into the oils and swirl for 10 seconds to bond molecules.</div>
+      </div>
+    `;
+
+    if (m.size === 6) {
+      steps += `
+        <div class="sop-step-item">
+          <div class="sop-step-num">${stepCount++}</div>
+          <div><strong>No Ethanol for Rollers:</strong> Roller format uses pure oil + fixative to ensure smooth rolling without leaking on skin.</div>
+        </div>
+        <div class="sop-step-item">
+          <div class="sop-step-num">${stepCount++}</div>
+          <div><strong>Insert Rollerball:</strong> Press the metal rollerball housing firmly into the glass neck. Screw the cap tight.</div>
+        </div>
+      `;
+    } else {
+      steps += `
+        <div class="sop-step-item">
+          <div class="sop-step-num">${stepCount++}</div>
+          <div><strong>Top with Cosmetic Ethanol:</strong> Inject <strong>${m.ethanolMl} ml</strong> of Cosmetic Ethanol 96% up to the bottle's shoulder line.</div>
+        </div>
+        <div class="sop-step-item">
+          <div class="sop-step-num">${stepCount++}</div>
+          <div><strong>Atomizer Crimp/Cap:</strong> Screw and tighten the spray atomizer firmly using the cap tightener to prevent leakage.</div>
+        </div>
+      `;
+    }
+
+    steps += `
+      <div class="sop-step-item">
+        <div class="sop-step-num">${stepCount++}</div>
+        <div><strong>Homogenize & Inspect:</strong> Gently invert 5 times. Check for clarity. Affix waterproof NolMart label and slip into velvet A6 packaging bag.</div>
+      </div>
+    `;
+
+    stepsList.innerHTML = steps;
+  }
 }
 
 // ==========================================
 // SETTINGS, BACKUP & EXPORTS
 // ==========================================
 function initSettingsAndExports() {
-  // Download JSON Backup
   document.getElementById('downloadBackupBtn')?.addEventListener('click', async () => {
     try {
       await downloadFullBackup();
-      showToast('Private backup downloaded successfully!', 'success');
+      showToast('Private backup downloaded!', 'success');
     } catch (e) {
       showToast('Backup failed: ' + e.message, 'error');
     }
   });
 
-  // Restore from File
   const restoreInput = document.getElementById('restoreFileInput');
   if (restoreInput) {
     restoreInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      if (confirm('Restore data from this file? This will overwrite your current local records.')) {
+      if (confirm('Restore records from backup file? Current data will be replaced.')) {
         try {
           await restoreFromFile(file);
-          showToast('Data restored successfully!', 'success');
+          showToast('Records restored successfully!', 'success');
           await loadAllData();
           switchTab('tab-dashboard');
         } catch (err) {
@@ -653,23 +722,20 @@ function initSettingsAndExports() {
     });
   }
 
-  // Export CSVs
   document.getElementById('exportTxCSVBtn')?.addEventListener('click', exportTransactionsToCSV);
   document.getElementById('exportAllTxCSV')?.addEventListener('click', exportTransactionsToCSV);
   document.getElementById('exportInvCSVBtn')?.addEventListener('click', exportInventoryToCSV);
   document.getElementById('exportAllInvCSV')?.addEventListener('click', exportInventoryToCSV);
 
-  // Clear data
   document.getElementById('clearDataBtn')?.addEventListener('click', async () => {
-    if (confirm('WARNING: Are you sure you want to reset all records to default baseline? Make sure you have downloaded a backup first!')) {
+    if (confirm('WARNING: Reset all records to clean baseline? Make sure you have downloaded a backup first!')) {
       await clearAllLocalData();
-      showToast('All local records reset to clean baseline.', 'info');
+      showToast('Records reset to baseline.', 'info');
       await loadAllData();
       switchTab('tab-dashboard');
     }
   });
 
-  // Filter Period Tabs in Dashboard
   document.querySelectorAll('.filter-tab[data-period]').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.filter-tab[data-period]').forEach(b => b.classList.remove('active'));
@@ -679,7 +745,6 @@ function initSettingsAndExports() {
     });
   });
 
-  // Inventory Filter Tabs
   document.querySelectorAll('.filter-tab[data-inv-filter]').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.filter-tab[data-inv-filter]').forEach(b => b.classList.remove('active'));
@@ -689,12 +754,11 @@ function initSettingsAndExports() {
     });
   });
 
-  // Search & Type Filter in Transactions
   document.getElementById('txSearchInput')?.addEventListener('input', renderTransactionsTab);
   document.getElementById('txTypeFilter')?.addEventListener('change', renderTransactionsTab);
 }
 
-// Load all data from IndexedDB into memory & refresh active tab
+// Load data into memory & refresh
 async function loadAllData() {
   await openDatabase();
   state.inventory = await getAllInventory();
@@ -703,31 +767,20 @@ async function loadAllData() {
   if (state.currentTab === 'tab-dashboard') renderDashboard();
   else if (state.currentTab === 'tab-transactions') renderTransactionsTab();
   else if (state.currentTab === 'tab-inventory') renderInventoryTab();
-  else if (state.currentTab === 'tab-calculator') updateCalculatorRecipe();
-}
-
-function escapeHTML(str) {
-  if (!str) return '';
-  return str.replace(/[&<>'"]/g, tag => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    "'": '&#39;',
-    '"': '&quot;'
-  }[tag] || tag));
+  else if (state.currentTab === 'tab-calculator') renderSOPLab();
 }
 
 // ==========================================
-// APP INITIALIZATION
+// INITIALIZATION
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
   initPWA();
   initNavigation();
   initModals();
   initForms();
-  initCalculator();
+  initSOPLab();
   initSettingsAndExports();
 
   await loadAllData();
-  updateCalculatorRecipe();
+  renderSOPLab();
 });

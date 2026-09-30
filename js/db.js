@@ -1,8 +1,8 @@
 // js/db.js - Local-First IndexedDB Engine for NolMart Business Manager
-// 100% Client-Side Storage - Zero Remote Server Exposure
+// 100% Client-Side Storage - Perfume Artisan & Dropshipping Architecture
 
 const DB_NAME = 'NolMartBusinessDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for perfume-only inventory & SOP updates
 
 let dbInstance = null;
 
@@ -22,23 +22,22 @@ export function openDatabase() {
         txStore.createIndex('category', 'category', { unique: false });
         txStore.createIndex('date', 'date', { unique: false });
         txStore.createIndex('timestamp', 'timestamp', { unique: false });
-        txStore.createIndex('paymentMethod', 'paymentMethod', { unique: false });
       }
 
-      // 2. Inventory store (Finished bottles, raw oils, ethanol, packaging, tech)
+      // 2. Inventory store (Raw scent oils, ethanol, fixatives, packaging only - NO tech)
       if (!db.objectStoreNames.contains('inventory')) {
         const invStore = db.createObjectStore('inventory', { keyPath: 'id', autoIncrement: true });
         invStore.createIndex('category', 'category', { unique: false });
         invStore.createIndex('name', 'name', { unique: false });
       }
 
-      // 3. Batches store (Formulation records, blending history)
+      // 3. Batches / Orders store
       if (!db.objectStoreNames.contains('batches')) {
         const batchStore = db.createObjectStore('batches', { keyPath: 'id', autoIncrement: true });
         batchStore.createIndex('date', 'date', { unique: false });
       }
 
-      // 4. Settings store (Preferences, app settings)
+      // 4. Settings store
       if (!db.objectStoreNames.contains('settings')) {
         db.createObjectStore('settings', { keyPath: 'key' });
       }
@@ -46,8 +45,7 @@ export function openDatabase() {
 
     request.onsuccess = (event) => {
       dbInstance = event.target.result;
-      // Auto-seed initial catalog if newly opened
-      checkAndSeedInitialData(dbInstance).then(() => {
+      checkAndSeedPerfumeInventory(dbInstance).then(() => {
         resolve(dbInstance);
       });
     };
@@ -59,58 +57,38 @@ export function openDatabase() {
   });
 }
 
-// Seed default products and raw materials on first launch
-async function checkAndSeedInitialData(db) {
+// Seed only physical perfume inventory (oils, ethanol, fixatives, packaging)
+async function checkAndSeedPerfumeInventory(db) {
   const count = await getStoreCount(db, 'inventory');
-  if (count > 0) return; // already seeded
+  if (count > 0) return; // already populated
 
-  const defaultInventory = [
-    // Finished Perfumes - 30ml Sprays (35,000 TZS)
-    { name: 'Coconut Passion + Vanilla 28 (30ml)', category: 'finished_perfume', subCategory: '30ml', quantity: 8, unit: 'bottles', unitCost: 9500, sellingPrice: 35000, minThreshold: 2 },
-    { name: 'Coconut Passion (30ml)', category: 'finished_perfume', subCategory: '30ml', quantity: 5, unit: 'bottles', unitCost: 9000, sellingPrice: 35000, minThreshold: 2 },
-    { name: 'Vanilla 28 (30ml)', category: 'finished_perfume', subCategory: '30ml', quantity: 6, unit: 'bottles', unitCost: 9500, sellingPrice: 35000, minThreshold: 2 },
-    { name: 'Pink Chiffon (30ml)', category: 'finished_perfume', subCategory: '30ml', quantity: 5, unit: 'bottles', unitCost: 9000, sellingPrice: 35000, minThreshold: 2 },
-    { name: 'Now Rave (30ml)', category: 'finished_perfume', subCategory: '30ml', quantity: 7, unit: 'bottles', unitCost: 9500, sellingPrice: 35000, minThreshold: 2 },
-    { name: 'Tom Ford Noir Extreme (30ml)', category: 'finished_perfume', subCategory: '30ml', quantity: 6, unit: 'bottles', unitCost: 11000, sellingPrice: 35000, minThreshold: 2 },
-    { name: '212 VIP (30ml)', category: 'finished_perfume', subCategory: '30ml', quantity: 4, unit: 'bottles', unitCost: 10000, sellingPrice: 35000, minThreshold: 2 },
-    { name: 'Reef 33 / Obsidian (30ml)', category: 'finished_perfume', subCategory: '30ml', quantity: 5, unit: 'bottles', unitCost: 10500, sellingPrice: 35000, minThreshold: 2 },
-    { name: 'Coastal Dream (30ml)', category: 'finished_perfume', subCategory: '30ml', quantity: 4, unit: 'bottles', unitCost: 9000, sellingPrice: 35000, minThreshold: 2 },
+  const initialPerfumeStock = [
+    // 1. Concentrated Perfume Oils (tracked in ml)
+    { name: 'Coconut Passion Oil', category: 'raw_oil', scentKey: 'coconut_passion', quantity: 100, unit: 'ml', unitCost: 150, sellingPrice: 0, minThreshold: 20 },
+    { name: 'Vanilla 28 Oil', category: 'raw_oil', scentKey: 'vanilla_28', quantity: 100, unit: 'ml', unitCost: 160, sellingPrice: 0, minThreshold: 20 },
+    { name: 'Pink Chiffon Oil', category: 'raw_oil', scentKey: 'pink_chiffon', quantity: 100, unit: 'ml', unitCost: 150, sellingPrice: 0, minThreshold: 20 },
+    { name: 'Now Rave Oil', category: 'raw_oil', scentKey: 'now_rave', quantity: 100, unit: 'ml', unitCost: 160, sellingPrice: 0, minThreshold: 20 },
+    { name: 'Tom Ford Noir Extreme Oil', category: 'raw_oil', scentKey: 'noir_extreme', quantity: 100, unit: 'ml', unitCost: 180, sellingPrice: 0, minThreshold: 20 },
+    { name: '212 VIP Oil', category: 'raw_oil', scentKey: '212_vip', quantity: 100, unit: 'ml', unitCost: 160, sellingPrice: 0, minThreshold: 20 },
+    { name: 'Reef 33 / Obsidian Oil', category: 'raw_oil', scentKey: 'reef_33', quantity: 100, unit: 'ml', unitCost: 170, sellingPrice: 0, minThreshold: 20 },
+    { name: 'Coastal Dream Oil', category: 'raw_oil', scentKey: 'coastal_dream', quantity: 100, unit: 'ml', unitCost: 150, sellingPrice: 0, minThreshold: 20 },
+    { name: 'Berries Weekend Oil', category: 'raw_oil', scentKey: 'berries_weekend', quantity: 100, unit: 'ml', unitCost: 150, sellingPrice: 0, minThreshold: 20 },
 
-    // Finished Perfumes - 10ml Sprays (15,000 TZS)
-    { name: 'Coconut Passion + Vanilla 28 (10ml)', category: 'finished_perfume', subCategory: '10ml', quantity: 12, unit: 'bottles', unitCost: 4000, sellingPrice: 15000, minThreshold: 3 },
-    { name: 'Now Rave (10ml)', category: 'finished_perfume', subCategory: '10ml', quantity: 10, unit: 'bottles', unitCost: 4000, sellingPrice: 15000, minThreshold: 3 },
-    { name: 'Tom Ford Noir Extreme (10ml)', category: 'finished_perfume', subCategory: '10ml', quantity: 8, unit: 'bottles', unitCost: 4500, sellingPrice: 15000, minThreshold: 3 },
-    { name: 'Pink Chiffon (10ml)', category: 'finished_perfume', subCategory: '10ml', quantity: 10, unit: 'bottles', unitCost: 4000, sellingPrice: 15000, minThreshold: 3 },
-    { name: 'Reef 33 (10ml)', category: 'finished_perfume', subCategory: '10ml', quantity: 8, unit: 'bottles', unitCost: 4500, sellingPrice: 15000, minThreshold: 3 },
+    // 2. Solvents & Fixatives
+    { name: 'Cosmetic Grade Ethanol 96%', category: 'raw_solvent', subCategory: 'ethanol', quantity: 2.0, unit: 'L', unitCost: 12000, sellingPrice: 0, minThreshold: 0.5 },
+    { name: 'Long-Lasting Perfume Fixative', category: 'raw_solvent', subCategory: 'fixative', quantity: 250, unit: 'ml', unitCost: 180, sellingPrice: 0, minThreshold: 50 },
 
-    // Finished Perfumes - 6ml Rollers (7,000 TZS)
-    { name: 'Coconut Passion (6ml Roller)', category: 'finished_perfume', subCategory: '6ml', quantity: 15, unit: 'bottles', unitCost: 2200, sellingPrice: 7000, minThreshold: 5 },
-    { name: 'Vanilla 28 (6ml Roller)', category: 'finished_perfume', subCategory: '6ml', quantity: 15, unit: 'bottles', unitCost: 2200, sellingPrice: 7000, minThreshold: 5 },
-    { name: 'Now Rave (6ml Roller)', category: 'finished_perfume', subCategory: '6ml', quantity: 12, unit: 'bottles', unitCost: 2200, sellingPrice: 7000, minThreshold: 5 },
-    { name: 'Pink Chiffon (6ml Roller)', category: 'finished_perfume', subCategory: '6ml', quantity: 14, unit: 'bottles', unitCost: 2200, sellingPrice: 7000, minThreshold: 5 },
-    { name: 'Reef 33 (6ml Roller)', category: 'finished_perfume', subCategory: '6ml', quantity: 12, unit: 'bottles', unitCost: 2500, sellingPrice: 7000, minThreshold: 5 },
-
-    // Raw Materials
-    { name: 'Concentrated Perfume Oils (Assorted)', category: 'raw_material', subCategory: 'oil', quantity: 450, unit: 'ml', unitCost: 150, sellingPrice: 0, minThreshold: 100 },
-    { name: 'Cosmetic Grade Ethanol (96%)', category: 'raw_material', subCategory: 'solvent', quantity: 2.5, unit: 'L', unitCost: 12000, sellingPrice: 0, minThreshold: 1.0 },
-    { name: 'Long-Lasting Perfume Fixative', category: 'raw_material', subCategory: 'fixative', quantity: 180, unit: 'ml', unitCost: 180, sellingPrice: 0, minThreshold: 50 },
-
-    // Packaging Materials
-    { name: 'Empty 30ml Spray Bottles with Caps', category: 'packaging', subCategory: 'bottle', quantity: 24, unit: 'pcs', unitCost: 2000, sellingPrice: 0, minThreshold: 10 },
-    { name: 'Empty 10ml Spray Bottles', category: 'packaging', subCategory: 'bottle', quantity: 36, unit: 'pcs', unitCost: 1200, sellingPrice: 0, minThreshold: 15 },
-    { name: 'Empty 6ml Roller Bottles with Rollers', category: 'packaging', subCategory: 'bottle', quantity: 48, unit: 'pcs', unitCost: 800, sellingPrice: 0, minThreshold: 20 },
-    { name: 'A6 NolMart Branding Packaging Bags', category: 'packaging', subCategory: 'bags', quantity: 80, unit: 'pcs', unitCost: 350, sellingPrice: 0, minThreshold: 25 },
-    { name: 'NolMart Waterproof Product Stickers/Labels', category: 'packaging', subCategory: 'labels', quantity: 120, unit: 'pcs', unitCost: 250, sellingPrice: 0, minThreshold: 30 },
-
-    // Electronics & Tech
-    { name: 'Oraimo FreePods Neo Earbuds', category: 'tech_gadget', subCategory: 'audio', quantity: 4, unit: 'pcs', unitCost: 45000, sellingPrice: 65000, minThreshold: 2 },
-    { name: 'Oraimo Smart Blender', category: 'tech_gadget', subCategory: 'home', quantity: 2, unit: 'pcs', unitCost: 85000, sellingPrice: 125000, minThreshold: 1 },
-    { name: 'Oraimo Smart Kettle', category: 'tech_gadget', subCategory: 'home', quantity: 3, unit: 'pcs', unitCost: 60000, sellingPrice: 90000, minThreshold: 1 }
+    // 3. Packaging Materials
+    { name: 'Empty 30ml Spray Glass Bottles', category: 'packaging', subCategory: '30ml_bottle', quantity: 24, unit: 'pcs', unitCost: 2000, sellingPrice: 0, minThreshold: 8 },
+    { name: 'Empty 10ml Spray Atomizer Bottles', category: 'packaging', subCategory: '10ml_bottle', quantity: 36, unit: 'pcs', unitCost: 1200, sellingPrice: 0, minThreshold: 10 },
+    { name: 'Empty 6ml Roller Glass Bottles', category: 'packaging', subCategory: '6ml_bottle', quantity: 48, unit: 'pcs', unitCost: 800, sellingPrice: 0, minThreshold: 12 },
+    { name: 'NolMart A6 Velvet/Packaging Bags', category: 'packaging', subCategory: 'bags', quantity: 80, unit: 'pcs', unitCost: 350, sellingPrice: 0, minThreshold: 20 },
+    { name: 'NolMart Waterproof Scents Labels', category: 'packaging', subCategory: 'labels', quantity: 120, unit: 'pcs', unitCost: 250, sellingPrice: 0, minThreshold: 25 }
   ];
 
   const tx = db.transaction('inventory', 'readwrite');
   const store = tx.objectStore('inventory');
-  for (const item of defaultInventory) {
+  for (const item of initialPerfumeStock) {
     item.lastUpdated = new Date().toISOString();
     store.add(item);
   }
@@ -147,26 +125,17 @@ export async function addTransaction(transactionData) {
 
     const addReq = txStore.add(entry);
 
-    // If this transaction is a sale and linked to an inventory item, auto-decrement stock
-    if (entry.type === 'income' && entry.inventoryItemId) {
-      const invReq = invStore.get(entry.inventoryItemId);
-      invReq.onsuccess = () => {
-        const item = invReq.result;
-        if (item && item.quantity >= entry.quantity) {
-          item.quantity -= entry.quantity;
-          item.lastUpdated = new Date().toISOString();
-          invStore.put(item);
-        }
-      };
-    }
-
-    // If this transaction is a stock purchase restock, auto-increment stock if linked
-    if (entry.type === 'expense' && entry.inventoryItemId) {
+    // If an inventory item is directly linked (e.g. stock replenishment or pre-made item)
+    if (entry.inventoryItemId) {
       const invReq = invStore.get(entry.inventoryItemId);
       invReq.onsuccess = () => {
         const item = invReq.result;
         if (item) {
-          item.quantity += entry.quantity;
+          if (entry.type === 'income') {
+            item.quantity = Math.max(0, item.quantity - entry.quantity);
+          } else if (entry.type === 'expense') {
+            item.quantity += entry.quantity;
+          }
           item.lastUpdated = new Date().toISOString();
           invStore.put(item);
         }
@@ -186,7 +155,6 @@ export async function getAllTransactions() {
     const req = store.getAll();
 
     req.onsuccess = () => {
-      // Sort newest first
       const items = req.result.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
       resolve(items);
     };
@@ -239,48 +207,6 @@ export async function addInventoryItem(item) {
   });
 }
 
-export async function updateInventoryItem(id, updates) {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('inventory', 'readwrite');
-    const store = tx.objectStore('inventory');
-    const getReq = store.get(id);
-
-    getReq.onsuccess = () => {
-      const current = getReq.result;
-      if (!current) {
-        reject(new Error('Item not found'));
-        return;
-      }
-      const updated = {
-        ...current,
-        ...updates,
-        quantity: parseFloat(updates.quantity !== undefined ? updates.quantity : current.quantity),
-        unitCost: parseFloat(updates.unitCost !== undefined ? updates.unitCost : current.unitCost),
-        sellingPrice: parseFloat(updates.sellingPrice !== undefined ? updates.sellingPrice : current.sellingPrice),
-        minThreshold: parseFloat(updates.minThreshold !== undefined ? updates.minThreshold : current.minThreshold),
-        lastUpdated: new Date().toISOString()
-      };
-      const putReq = store.put(updated);
-      putReq.onsuccess = () => resolve(updated);
-      putReq.onerror = () => reject(putReq.error);
-    };
-    getReq.onerror = () => reject(getReq.error);
-  });
-}
-
-export async function deleteInventoryItem(id) {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('inventory', 'readwrite');
-    const store = tx.objectStore('inventory');
-    const req = store.delete(id);
-    req.onsuccess = () => resolve(true);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-// Adjust quantity by + or - delta
 export async function adjustStock(id, delta) {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
@@ -301,100 +227,112 @@ export async function adjustStock(id, delta) {
   });
 }
 
-// ==========================================
-// BATCHES (PERFUME FORMULATION)
-// ==========================================
-
-export async function addBatch(batchData) {
+export async function deleteInventoryItem(id) {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(['batches', 'inventory'], 'readwrite');
-    const batchStore = tx.objectStore('batches');
-    const invStore = tx.objectStore('inventory');
-
-    const entry = {
-      ...batchData,
-      date: batchData.date || new Date().toISOString().split('T')[0],
-      timestamp: Date.now()
-    };
-
-    const addReq = batchStore.add(entry);
-
-    // If user opts to deduct raw materials & add finished bottles
-    if (batchData.autoUpdateInventory) {
-      const allInvReq = invStore.getAll();
-      allInvReq.onsuccess = () => {
-        const inventory = allInvReq.result;
-
-        // Deduct oil
-        const oilItem = inventory.find(i => i.subCategory === 'oil');
-        if (oilItem) {
-          oilItem.quantity = Math.max(0, oilItem.quantity - (batchData.oilVolume || 0));
-          invStore.put(oilItem);
-        }
-
-        // Deduct fixative
-        const fixItem = inventory.find(i => i.subCategory === 'fixative');
-        if (fixItem) {
-          fixItem.quantity = Math.max(0, fixItem.quantity - (batchData.fixativeVolume || 0));
-          invStore.put(fixItem);
-        }
-
-        // Deduct ethanol (in Liters if inventory is in L, or ml)
-        const ethItem = inventory.find(i => i.subCategory === 'solvent');
-        if (ethItem) {
-          const ethLiters = (batchData.ethanolVolume || 0) / 1000;
-          ethItem.quantity = Math.max(0, ethItem.quantity - ethLiters);
-          invStore.put(ethItem);
-        }
-
-        // Deduct empty bottles
-        const emptyBottleItem = inventory.find(i => i.category === 'packaging' && i.name.includes(batchData.bottleSize));
-        if (emptyBottleItem) {
-          emptyBottleItem.quantity = Math.max(0, emptyBottleItem.quantity - (batchData.bottleCount || 0));
-          invStore.put(emptyBottleItem);
-        }
-
-        // Increment finished perfume
-        const finishedItem = inventory.find(i => i.category === 'finished_perfume' && i.name.includes(batchData.scentName) && i.name.includes(batchData.bottleSize));
-        if (finishedItem) {
-          finishedItem.quantity += (batchData.bottleCount || 0);
-          invStore.put(finishedItem);
-        }
-      };
-    }
-
-    tx.oncomplete = () => resolve(addReq.result);
-    tx.onerror = (e) => reject(e.target.error);
+    const tx = db.transaction('inventory', 'readwrite');
+    const store = tx.objectStore('inventory');
+    const req = store.delete(id);
+    req.onsuccess = () => resolve(true);
+    req.onerror = () => reject(req.error);
   });
 }
 
-export async function getAllBatches() {
+// ==========================================
+// DEDUCT RAW INGREDIENTS FOR ON-DEMAND BLEND
+// ==========================================
+export async function deductIngredientsForBlend({
+  primaryOilKey,
+  primaryOilMl,
+  secondaryOilKey = null,
+  secondaryOilMl = 0,
+  fixativeMl,
+  ethanolMl,
+  bottleSize,
+  bottleCount = 1
+}) {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction('batches', 'readonly');
-    const store = tx.objectStore('batches');
+    const tx = db.transaction('inventory', 'readwrite');
+    const store = tx.objectStore('inventory');
     const req = store.getAll();
+
     req.onsuccess = () => {
-      const items = req.result.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-      resolve(items);
+      const inventory = req.result;
+
+      // 1. Deduct Primary Oil
+      if (primaryOilKey && primaryOilMl > 0) {
+        const item = inventory.find(i => i.scentKey === primaryOilKey || i.name.toLowerCase().includes(primaryOilKey.toLowerCase()));
+        if (item) {
+          item.quantity = Math.max(0, item.quantity - (primaryOilMl * bottleCount));
+          store.put(item);
+        }
+      }
+
+      // 2. Deduct Secondary Oil (if layered blend)
+      if (secondaryOilKey && secondaryOilMl > 0) {
+        const item = inventory.find(i => i.scentKey === secondaryOilKey || i.name.toLowerCase().includes(secondaryOilKey.toLowerCase()));
+        if (item) {
+          item.quantity = Math.max(0, item.quantity - (secondaryOilMl * bottleCount));
+          store.put(item);
+        }
+      }
+
+      // 3. Deduct Fixative
+      if (fixativeMl > 0) {
+        const item = inventory.find(i => i.subCategory === 'fixative' || i.name.toLowerCase().includes('fixative'));
+        if (item) {
+          item.quantity = Math.max(0, item.quantity - (fixativeMl * bottleCount));
+          store.put(item);
+        }
+      }
+
+      // 4. Deduct Ethanol (convert ml to Liters if stored in L)
+      if (ethanolMl > 0) {
+        const item = inventory.find(i => i.subCategory === 'ethanol' || i.name.toLowerCase().includes('ethanol'));
+        if (item) {
+          const litersNeeded = (ethanolMl * bottleCount) / 1000;
+          item.quantity = Math.max(0, item.quantity - litersNeeded);
+          store.put(item);
+        }
+      }
+
+      // 5. Deduct Empty Bottle
+      const bottleSubCat = `${bottleSize}ml_bottle`;
+      const bottleItem = inventory.find(i => i.subCategory === bottleSubCat || i.name.includes(`${bottleSize}ml`));
+      if (bottleItem) {
+        bottleItem.quantity = Math.max(0, bottleItem.quantity - bottleCount);
+        store.put(bottleItem);
+      }
+
+      // 6. Deduct Label & Bag
+      const bagItem = inventory.find(i => i.subCategory === 'bags');
+      if (bagItem) {
+        bagItem.quantity = Math.max(0, bagItem.quantity - bottleCount);
+        store.put(bagItem);
+      }
+      const labelItem = inventory.find(i => i.subCategory === 'labels');
+      if (labelItem) {
+        labelItem.quantity = Math.max(0, labelItem.quantity - bottleCount);
+        store.put(labelItem);
+      }
     };
-    req.onerror = () => reject(req.error);
+
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = (e) => reject(e.target.error);
   });
 }
 
 // ==========================================
 // FINANCIAL CALCULATIONS & REPORTING
 // ==========================================
-
 export async function getFinancialSummary(filterDateRange = 'all') {
   const transactions = await getAllTransactions();
   const now = new Date();
   const todayStr = now.toISOString().split('T')[0];
-  const currentYearMonth = todayStr.substring(0, 7); // YYYY-MM
+  const currentYearMonth = todayStr.substring(0, 7);
 
   let filtered = transactions;
-
   if (filterDateRange === 'today') {
     filtered = transactions.filter(t => t.date === todayStr);
   } else if (filterDateRange === 'this_month') {
@@ -418,8 +356,6 @@ export async function getFinancialSummary(filterDateRange = 'all') {
     bank: 0
   };
 
-  const categoryBreakdown = {};
-
   for (const t of filtered) {
     const amount = Number(t.amount) || 0;
     const method = t.paymentMethod || 'cash';
@@ -430,38 +366,23 @@ export async function getFinancialSummary(filterDateRange = 'all') {
       } else {
         totalSales += amount;
       }
-
-      if (paymentBreakdown[method] !== undefined) {
-        paymentBreakdown[method] += amount;
-      }
+      if (paymentBreakdown[method] !== undefined) paymentBreakdown[method] += amount;
     } else if (t.type === 'expense') {
       if (t.category === 'owner_draw') {
         ownersDraw += amount;
       } else {
         totalExpenses += amount;
       }
-
-      if (paymentBreakdown[method] !== undefined) {
-        paymentBreakdown[method] -= amount;
-      }
+      if (paymentBreakdown[method] !== undefined) paymentBreakdown[method] -= amount;
     }
-
-    // Category tracking
-    const cat = t.category || 'other';
-    categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + amount;
   }
 
-  // All-time Cash in Hand reconciliation (from inception)
   let allTimeMoneyIn = 0;
   let allTimeMoneyOut = 0;
-
   for (const t of transactions) {
     const amt = Number(t.amount) || 0;
-    if (t.type === 'income') {
-      allTimeMoneyIn += amt;
-    } else if (t.type === 'expense') {
-      allTimeMoneyOut += amt;
-    }
+    if (t.type === 'income') allTimeMoneyIn += amt;
+    else if (t.type === 'expense') allTimeMoneyOut += amt;
   }
 
   const expectedCashInHand = allTimeMoneyIn - allTimeMoneyOut;
@@ -477,23 +398,28 @@ export async function getFinancialSummary(filterDateRange = 'all') {
     ownersDraw,
     expectedCashInHand,
     paymentBreakdown,
-    categoryBreakdown,
     totalTransactions: filtered.length
   };
 }
 
-// ==========================================
-// BACKUP & RESTORE (PRIVACY PRESERVING)
-// ==========================================
+export async function getAllBatches() {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('batches', 'readonly');
+    const store = tx.objectStore('batches');
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
+    req.onerror = () => reject(req.error);
+  });
+}
 
 export async function exportAllDataJSON() {
-  const db = await openDatabase();
   const txs = await getAllTransactions();
   const inv = await getAllInventory();
   const batches = await getAllBatches();
 
   const backup = {
-    version: '1.0',
+    version: '2.0',
     exportDate: new Date().toISOString(),
     appName: 'NolMart Business Manager',
     data: {
@@ -513,31 +439,24 @@ export async function importAllDataJSON(jsonString) {
   }
 
   const db = await openDatabase();
-
   return new Promise((resolve, reject) => {
     const tx = db.transaction(['transactions', 'inventory', 'batches'], 'readwrite');
     const txStore = tx.objectStore('transactions');
     const invStore = tx.objectStore('inventory');
     const batchStore = tx.objectStore('batches');
 
-    // Clear existing stores
     txStore.clear();
     invStore.clear();
     batchStore.clear();
 
-    // Import transactions
     for (const item of parsed.data.transactions) {
-      delete item.id; // allow new keys or keep clean
+      delete item.id;
       txStore.add(item);
     }
-
-    // Import inventory
     for (const item of parsed.data.inventory) {
       delete item.id;
       invStore.add(item);
     }
-
-    // Import batches if present
     if (parsed.data.batches) {
       for (const item of parsed.data.batches) {
         delete item.id;
@@ -550,18 +469,3 @@ export async function importAllDataJSON(jsonString) {
   });
 }
 
-export async function clearAllLocalData() {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(['transactions', 'inventory', 'batches'], 'readwrite');
-    tx.objectStore('transactions').clear();
-    tx.objectStore('inventory').clear();
-    tx.objectStore('batches').clear();
-
-    tx.oncomplete = () => {
-      // Re-seed with fresh baseline inventory
-      checkAndSeedInitialData(db).then(() => resolve(true));
-    };
-    tx.onerror = (e) => reject(e.target.error);
-  });
-}

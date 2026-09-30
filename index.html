@@ -7,9 +7,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="NolMart Ops">
-  <meta name="description" content="Local-first private business manager, cashflow ledger, and inventory stock manager for NolMart.">
+  <meta name="description" content="Local-first private business manager, cashflow ledger, and perfume inventory manager for NolMart.">
 
-  <title>NolMart Ops | Business & Stock Manager</title>
+  <title>NolMart Ops | Business & Perfume Manager</title>
 
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
@@ -28,20 +28,18 @@
         <div class="brand-logo">
           <img src="icons/favicon.svg" alt="NolMart Logo">
         </div>
-        <div>
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span class="brand-title">NolMart</span>
-            <span class="brand-badge">Ops</span>
-          </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span class="brand-title">NolMart</span>
+          <span class="brand-badge">Ops</span>
         </div>
       </div>
       <div class="header-actions">
-        <div class="privacy-pill" title="All your financial data is stored 100% on your device only">
+        <div class="privacy-pill" title="All business data is stored locally in your phone only">
           <span class="privacy-dot"></span>
           <span>Local Only</span>
         </div>
         <button id="pwaInstallBtn" class="btn-icon" title="Install App to Phone" style="display: none;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
           </svg>
         </button>
@@ -59,14 +57,14 @@
       <!-- Quick Action Buttons -->
       <div class="quick-action-bar">
         <button id="openSaleModalBtn" class="btn-quick btn-sale">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
           <span>Record Sale (+ Mauzo)</span>
         </button>
         <button id="openExpenseModalBtn" class="btn-quick btn-expense">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
           <span>Record Expense (- Matumizi)</span>
@@ -84,32 +82,32 @@
       <!-- Low Stock Alert Banner -->
       <div id="lowStockBanner" class="low-stock-banner hidden">
         <div class="alert-text">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4m0 4h.01"/>
           </svg>
-          <span id="lowStockCountText">0 items are running low on stock!</span>
+          <span id="lowStockCountText">Raw materials running low!</span>
         </div>
         <button class="btn-alert" id="goToInventoryFromAlert">View Stock</button>
       </div>
 
-      <!-- Stats Grid -->
+      <!-- Financial Cards Grid -->
       <div class="stats-grid">
         <!-- Hero: Expected Cash in Hand -->
         <div class="stat-card hero-card">
           <div class="stat-label">
             <span>Expected Cash in Hand (Pesa Mkononi)</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="4" width="20" height="16" rx="2"></rect>
               <line x1="2" y1="10" x2="22" y2="10"></line>
             </svg>
           </div>
           <div class="stat-value" id="statCashInHand">0 TZS</div>
           <div class="stat-meta">
-            <span class="text-secondary">Total Inflow minus Total Outflow</span>
+            <span>Net Money In minus Money Out</span>
           </div>
         </div>
 
-        <!-- Total Sales Revenue -->
+        <!-- Sales Revenue -->
         <div class="stat-card">
           <div class="stat-label">
             <span>Sales Revenue</span>
@@ -117,19 +115,19 @@
           </div>
           <div class="stat-value text-emerald" id="statTotalSales">0 TZS</div>
           <div class="stat-meta">
-            <span id="statSalesCount" class="text-muted">0 sales recorded</span>
+            <span id="statSalesCount">0 sales</span>
           </div>
         </div>
 
-        <!-- Total Expenses -->
+        <!-- Operating Expenses -->
         <div class="stat-card">
           <div class="stat-label">
-            <span>Operating Expenses</span>
+            <span>Expenses</span>
             <span class="text-rose">↓</span>
           </div>
           <div class="stat-value text-rose" id="statTotalExpenses">0 TZS</div>
           <div class="stat-meta">
-            <span class="text-muted">Stock, logistics, materials</span>
+            <span>Oils, ethanol, packaging</span>
           </div>
         </div>
 
@@ -141,7 +139,7 @@
           </div>
           <div class="stat-value" id="statNetProfit">0 TZS</div>
           <div class="stat-meta">
-            <span class="text-secondary">Sales minus Expenses</span>
+            <span>Sales minus Expenses</span>
           </div>
         </div>
 
@@ -153,7 +151,7 @@
           </div>
           <div class="stat-value text-amber" id="statOwnersDraw">0 TZS</div>
           <div class="stat-meta">
-            <span class="text-muted">Personal withdrawals</span>
+            <span>Personal withdrawals</span>
           </div>
         </div>
       </div>
@@ -162,7 +160,6 @@
       <div class="money-methods-card">
         <div class="card-heading">
           <span>Payment Channels (Where is your money?)</span>
-          <span class="text-muted" style="font-size: 0.78rem;">Net Balances</span>
         </div>
         <div class="methods-grid">
           <div class="method-item">
@@ -182,7 +179,7 @@
             <span class="method-amount" id="methodTigo">0 TZS</span>
           </div>
           <div class="method-item">
-            <span class="method-name">Bank Transfer</span>
+            <span class="method-name">Bank</span>
             <span class="method-amount" id="methodBank">0 TZS</span>
           </div>
         </div>
@@ -192,11 +189,9 @@
       <div class="section-card">
         <div class="section-header">
           <span class="section-title">Recent Transactions</span>
-          <button id="viewAllTxBtn" class="btn-secondary">View All Ledger</button>
+          <button id="viewAllTxBtn" class="btn-secondary">View All</button>
         </div>
-        <div id="recentTxList" class="tx-list">
-          <!-- Injected via JavaScript -->
-        </div>
+        <div id="recentTxList" class="tx-list"></div>
       </div>
     </section>
 
@@ -208,190 +203,163 @@
         <div class="section-header">
           <div>
             <h2 class="section-title">Business Ledger</h2>
-            <p style="font-size: 0.8rem; color: var(--text-muted);">Search and review every shilling in & out</p>
+            <p style="font-size: 0.75rem; color: var(--text-muted);">Income, Expenses & Dropshipping</p>
           </div>
-          <div style="display: flex; gap: 8px;">
-            <button id="exportTxCSVBtn" class="btn-secondary" title="Export to Excel / CSV">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-              </svg>
-              <span>Export CSV</span>
-            </button>
-          </div>
+          <button id="exportTxCSVBtn" class="btn-secondary" title="Export to Excel">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+            <span>Excel CSV</span>
+          </button>
         </div>
 
         <!-- Filter & Search Controls -->
-        <div style="display: grid; grid-template-columns: 1fr 140px; gap: 10px; margin-bottom: 14px;">
-          <input type="text" id="txSearchInput" class="form-input" placeholder="Search by name, customer, note...">
+        <div style="display: grid; grid-template-columns: 1fr 120px; gap: 8px; margin-bottom: 12px;">
+          <input type="text" id="txSearchInput" class="form-input" placeholder="Search transaction, customer...">
           <select id="txTypeFilter" class="form-select">
-            <option value="all">All Types</option>
-            <option value="income">Income Only (+)</option>
-            <option value="expense">Expenses Only (-)</option>
+            <option value="all">All</option>
+            <option value="income">Income (+)</option>
+            <option value="expense">Expense (-)</option>
           </select>
         </div>
 
         <!-- Full Transaction Feed -->
-        <div id="fullTxList" class="tx-list">
-          <!-- Injected via JavaScript -->
-        </div>
+        <div id="fullTxList" class="tx-list"></div>
       </div>
     </section>
 
     <!-- ============================================== -->
-    <!-- TAB 3: INVENTORY & STOCK -->
+    <!-- TAB 3: INVENTORY (PERFUME OILS, SOLVENTS & PACKAGING) -->
     <!-- ============================================== -->
     <section id="tab-inventory" class="tab-view">
       <div class="section-card">
         <div class="section-header">
           <div>
-            <h2 class="section-title">Inventory & Stock Levels</h2>
-            <p style="font-size: 0.8rem; color: var(--text-muted);">Track bottles, raw perfume oils, packaging, and tech</p>
+            <h2 class="section-title">Perfume Stock & Raw Materials</h2>
+            <p style="font-size: 0.75rem; color: var(--text-muted);">Scent oils, fixatives, ethanol, and empty bottles</p>
           </div>
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 6px;">
             <button id="openNewItemModalBtn" class="btn-secondary">+ Add Item</button>
             <button id="exportInvCSVBtn" class="btn-secondary">Export CSV</button>
           </div>
         </div>
 
         <!-- Category Filter -->
-        <div class="filter-tabs" style="margin-bottom: 14px;">
-          <button class="filter-tab active" data-inv-filter="all">All Items</button>
-          <button class="filter-tab" data-inv-filter="finished_perfume">Perfumes</button>
-          <button class="filter-tab" data-inv-filter="raw_material">Raw Oils & Ethanol</button>
-          <button class="filter-tab" data-inv-filter="packaging">Packaging</button>
-          <button class="filter-tab" data-inv-filter="tech_gadget">Tech</button>
+        <div class="filter-tabs" style="margin-bottom: 12px;">
+          <button class="filter-tab active" data-inv-filter="all">All Stock</button>
+          <button class="filter-tab" data-inv-filter="raw_oil">Scent Oils (ml)</button>
+          <button class="filter-tab" data-inv-filter="raw_solvent">Ethanol & Fixative</button>
+          <button class="filter-tab" data-inv-filter="packaging">Empty Bottles & Bags</button>
         </div>
 
         <!-- Inventory Grid -->
-        <div id="inventoryGrid" class="inventory-grid">
-          <!-- Injected via JavaScript -->
-        </div>
+        <div id="inventoryGrid" class="inventory-grid"></div>
       </div>
     </section>
 
     <!-- ============================================== -->
-    <!-- TAB 4: PERFUME BATCH LAB (CALCULATOR) -->
+    <!-- TAB 4: INTERACTIVE SOP LAB (MADE-TO-ORDER) -->
     <!-- ============================================== -->
     <section id="tab-calculator" class="tab-view">
       <div class="lab-card">
         <div class="lab-title">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M10 2v7.31L4.36 17.6a2 2 0 0 0 1.64 2.4h12a2 2 0 0 0 1.64-2.4L14 9.31V2M8.5 2h7M14 9.3h-4M7.8 15h8.4"/>
           </svg>
-          <span>Perfume Compounding & Batch Lab</span>
+          <span>Perfume Blending SOP (Made-to-Order)</span>
         </div>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 18px;">
-          Calculate the exact milliliters of Concentrated Oil, Fixative, and Cosmetic Ethanol needed for your batch, plus cost per bottle and net profit.
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 14px;">
+          Select the client's requested scent blend and package format to see exact syringe measurements, formulation proportions, and preparation steps.
         </p>
 
-        <form id="perfumeCalcForm" class="form-grid">
+        <!-- Recipe & Package Selector -->
+        <div class="sop-selector-grid">
           <div class="form-group">
-            <label class="form-label">Scent Blend Name</label>
-            <input type="text" id="calcScentName" class="form-input" value="Coconut Passion + Vanilla 28" required>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Bottle Size Format</label>
-            <select id="calcBottleSize" class="form-select">
-              <option value="30">30ml Spray Bottle</option>
-              <option value="10">10ml Spray Bottle</option>
-              <option value="6">6ml Pocket Roller</option>
+            <label class="form-label">Client Scent Blend</label>
+            <select id="sopRecipeSelect" class="form-select">
+              <!-- Injected via JavaScript from RECIPES_CATALOG -->
             </select>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Number of Bottles to Produce</label>
-            <input type="number" id="calcBottleCount" class="form-input" value="10" min="1" required>
+            <label class="form-label">Package Size</label>
+            <select id="sopSizeSelect" class="form-select">
+              <option value="30">30ml Spray Bottle (35,000 TZS)</option>
+              <option value="10">10ml Spray Bottle (15,000 TZS)</option>
+              <option value="6">6ml Pocket Roller (7,000 TZS)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Dynamic SOP Recipe Card -->
+        <div class="sop-recipe-card">
+          <div class="sop-badge-header">
+            <div>
+              <span id="sopCardTitle" style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary);">Coconut Passion + Vanilla 28</span>
+              <p id="sopCardCategory" style="font-size: 0.72rem; color: var(--text-muted);">Gourmand Sweet (Bestseller)</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="sopPackageBadge" class="package-badge">30ml Spray</span>
+              <span id="sopPriceBadge" class="price-tag-badge">35,000 TZS</span>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Perfume Oil Concentration (%)</label>
-            <input type="number" id="calcOilPercent" class="form-input" value="25" min="5" max="60" required>
+          <!-- Syringe Guidance Tip -->
+          <div class="syringe-tip">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <span id="sopSyringeSpec">Use a 5ml Syringe for oils + 10ml/20ml Syringe for Ethanol</span>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Fixative Concentration (%)</label>
-            <input type="number" id="calcFixativePercent" class="form-input" value="5" min="1" max="15" required>
+          <!-- Exact Measurements Grid -->
+          <div class="measurements-container" id="sopMeasurementsGrid">
+            <!-- Injected via JavaScript -->
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Cosmetic Ethanol (%) [Auto-Balanced]</label>
-            <input type="text" id="calcEthanolPercent" class="form-input" value="70%" readonly style="opacity: 0.8;">
-          </div>
-        </form>
-
-        <!-- Lab Results Display -->
-        <div class="lab-results-box">
-          <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 10px; color: var(--cyan);">Formula Recipe Breakdown</h4>
-          <div class="recipe-row">
-            <span>Total Batch Volume:</span>
-            <span class="recipe-val" id="resTotalVolume">300 ml</span>
-          </div>
-          <div class="recipe-row">
-            <span>Concentrated Perfume Oil Needed:</span>
-            <span class="recipe-val text-amber" id="resOilVolume">75 ml</span>
-          </div>
-          <div class="recipe-row">
-            <span>Long-Lasting Fixative Needed:</span>
-            <span class="recipe-val text-cyan" id="resFixativeVolume">15 ml</span>
-          </div>
-          <div class="recipe-row">
-            <span>Cosmetic Ethanol Needed:</span>
-            <span class="recipe-val text-emerald" id="resEthanolVolume">210 ml</span>
+          <!-- Step-by-Step Preparation Guide -->
+          <h4 style="font-size: 0.88rem; font-weight: 700; margin: 12px 0 8px; color: var(--cyan);">Step-by-Step Preparation (SOP)</h4>
+          <div class="sop-steps-list" id="sopStepsList">
+            <!-- Injected via JavaScript -->
           </div>
 
-          <h4 style="font-size: 0.95rem; font-weight: 700; margin: 16px 0 10px; color: var(--emerald);">Batch Economics & Profit</h4>
-          <div class="recipe-row">
-            <span>Total Batch Production Cost:</span>
-            <span class="recipe-val text-rose" id="resTotalCost">0 TZS</span>
-          </div>
-          <div class="recipe-row">
-            <span>Cost per Bottle:</span>
-            <span class="recipe-val text-rose" id="resCostPerBottle">0 TZS</span>
-          </div>
-          <div class="recipe-row">
-            <span>Total Expected Revenue:</span>
-            <span class="recipe-val text-emerald" id="resTotalRevenue">0 TZS</span>
-          </div>
-          <div class="recipe-row">
-            <span>Net Profit for this Batch:</span>
-            <span class="recipe-val text-emerald" id="resNetProfit" style="font-size: 1.1rem;">0 TZS (0% Margin)</span>
-          </div>
-
-          <button id="saveBatchToStockBtn" class="btn-primary" style="margin-top: 18px; width: 100%;">
-            ✓ Produce Batch & Add to Stock
+          <!-- One-Tap Order Fulfillment Action -->
+          <button id="openFulfillOrderBtn" class="btn-primary" style="margin-top: 14px; width: 100%; background: linear-gradient(135deg, #10b981, #059669); color: white;">
+            ✓ Make for Client & Deduct Stock (+ Record Sale)
           </button>
         </div>
       </div>
     </section>
 
     <!-- ============================================== -->
-    <!-- TAB 5: SETTINGS & BACKUP (DATA PRIVACY) -->
+    <!-- TAB 5: SETTINGS & BACKUP -->
     <!-- ============================================== -->
     <section id="tab-settings" class="tab-view">
       <div class="section-card">
         <h2 class="section-title">Data Privacy & Security Guarantee</h2>
-        <div style="background: var(--bg-surface); padding: 16px; border-radius: var(--radius-md); margin-top: 12px; border-left: 4px solid var(--emerald);">
-          <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6;">
-            <strong>100% Private to Your Phone:</strong> This app uses <em>IndexedDB</em>, a client-side database built into your browser. Your transactions, customer numbers, profit, and stock figures are <strong>never</strong> transmitted to any server or public cloud.
+        <div style="background: var(--bg-surface); padding: 12px; border-radius: var(--radius-md); margin-top: 10px; border-left: 3px solid var(--emerald);">
+          <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5;">
+            <strong>100% Private on Your Phone:</strong> This app runs locally via <em>IndexedDB</em>. Your transactions, revenue, customer contacts, and stock are stored inside your device's browser and <strong>never uploaded to GitHub or the public internet</strong>.
           </p>
         </div>
 
-        <h3 style="font-size: 1rem; font-weight: 700; margin: 24px 0 12px;">Backup & Restore</h3>
-        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px;">
-          Always download a backup file regularly to your device so you never lose your records even if you clear your browser cache.
+        <h3 style="font-size: 0.95rem; font-weight: 700; margin: 20px 0 10px;">Private Backup & Restore</h3>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px;">
+          Download a private snapshot file to your phone so you never lose records if you clear browser history.
         </p>
 
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-          <button id="downloadBackupBtn" class="btn-secondary" style="padding: 12px 16px; font-weight: 600; justify-content: flex-start;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button id="downloadBackupBtn" class="btn-secondary" style="padding: 10px 14px; font-weight: 600; justify-content: flex-start;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
             </svg>
-            <span>Download Full Backup (Private JSON)</span>
+            <span>Download Backup (Private JSON)</span>
           </button>
 
-          <label class="btn-secondary" style="padding: 12px 16px; font-weight: 600; justify-content: flex-start; cursor: pointer;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <label class="btn-secondary" style="padding: 10px 14px; font-weight: 600; justify-content: flex-start; cursor: pointer;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
             </svg>
             <span>Restore from Backup File</span>
@@ -399,15 +367,15 @@
           </label>
         </div>
 
-        <h3 style="font-size: 1rem; font-weight: 700; margin: 24px 0 12px;">Excel / CSV Data Exports</h3>
-        <div style="display: flex; gap: 10px;">
-          <button id="exportAllTxCSV" class="btn-secondary" style="flex: 1;">Export Ledger to CSV</button>
-          <button id="exportAllInvCSV" class="btn-secondary" style="flex: 1;">Export Stock to CSV</button>
+        <h3 style="font-size: 0.95rem; font-weight: 700; margin: 20px 0 10px;">Excel / CSV Exports</h3>
+        <div style="display: flex; gap: 8px;">
+          <button id="exportAllTxCSV" class="btn-secondary" style="flex: 1;">Ledger CSV</button>
+          <button id="exportAllInvCSV" class="btn-secondary" style="flex: 1;">Stock CSV</button>
         </div>
 
-        <h3 style="font-size: 1rem; font-weight: 700; margin: 24px 0 12px; color: var(--rose);">Danger Zone</h3>
+        <h3 style="font-size: 0.95rem; font-weight: 700; margin: 20px 0 10px; color: var(--rose);">Danger Zone</h3>
         <button id="clearDataBtn" class="btn-secondary" style="border-color: var(--rose-border); color: var(--rose); width: 100%;">
-          Reset All Data to Default
+          Reset All Records to Baseline
         </button>
       </div>
     </section>
@@ -425,31 +393,35 @@
       </div>
 
       <form id="saleForm">
-        <div class="form-group" style="margin-bottom: 12px;">
-          <label class="form-label">Select Item from Stock (Optional)</label>
-          <select id="saleInventorySelect" class="form-select">
-            <option value="">-- Manual Item Entry --</option>
-            <!-- Injected via JavaScript -->
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label class="form-label">Product / Sale Type</label>
+          <select id="saleProductTypeSelect" class="form-select">
+            <option value="35000" data-desc="30ml Perfume Spray">30ml Perfume Spray (35,000 TZS)</option>
+            <option value="15000" data-desc="10ml Perfume Spray">10ml Perfume Spray (15,000 TZS)</option>
+            <option value="7000" data-desc="6ml Pocket Roller">6ml Pocket Roller (7,000 TZS)</option>
+            <option value="20000" data-desc="Discovery Trio (3x 6ml Rollers)">Discovery Trio (3x 6ml) (20,000 TZS)</option>
+            <option value="28000" data-desc="Executive Duo (2x 10ml Sprays)">Executive Duo (2x 10ml) (28,000 TZS)</option>
+            <option value="custom" data-desc="Tech Dropship / Custom">Tech Dropship / Custom Sale</option>
           </select>
         </div>
 
-        <div class="form-group" style="margin-bottom: 12px;">
-          <label class="form-label">Product / Scent Description</label>
-          <input type="text" id="saleDescription" class="form-input" placeholder="e.g. Coconut Passion + Vanilla 28 (30ml)" required>
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label class="form-label">Scent Blend or Description</label>
+          <input type="text" id="saleDescription" class="form-input" placeholder="e.g. Coconut Passion + Vanilla 28" required>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
           <div class="form-group">
             <label class="form-label">Quantity</label>
             <input type="number" id="saleQuantity" class="form-input" value="1" min="1" required>
           </div>
           <div class="form-group">
             <label class="form-label">Total Amount (TZS)</label>
-            <input type="number" id="saleAmount" class="form-input" placeholder="35000" required>
+            <input type="number" id="saleAmount" class="form-input" value="35000" required>
           </div>
         </div>
 
-        <div class="form-group" style="margin-bottom: 12px;">
+        <div class="form-group" style="margin-bottom: 10px;">
           <label class="form-label">Payment Channel</label>
           <select id="salePaymentMethod" class="form-select">
             <option value="mpesa">M-Pesa</option>
@@ -460,25 +432,25 @@
           </select>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
           <div class="form-group">
             <label class="form-label">Customer Name</label>
             <input type="text" id="saleCustomerName" class="form-input" placeholder="e.g. Sarah">
           </div>
           <div class="form-group">
             <label class="form-label">Customer Phone / WhatsApp</label>
-            <input type="tel" id="saleCustomerPhone" class="form-input" placeholder="e.g. 07XXXXXXXX">
+            <input type="tel" id="saleCustomerPhone" class="form-input" placeholder="07XXXXXXXX">
           </div>
         </div>
 
-        <div class="form-group" style="margin-bottom: 14px;">
+        <div class="form-group" style="margin-bottom: 12px;">
           <label class="form-label">Date</label>
           <input type="date" id="saleDate" class="form-input" required>
         </div>
 
-        <div class="form-group" style="margin-bottom: 14px;">
+        <div class="form-group" style="margin-bottom: 12px;">
           <label class="form-label">Notes (Optional)</label>
-          <input type="text" id="saleNotes" class="form-input" placeholder="e.g. Instagram DM order, sent via boda">
+          <input type="text" id="saleNotes" class="form-input" placeholder="e.g. Instagram DM, sent via boda">
         </div>
 
         <div class="modal-footer">
@@ -499,32 +471,30 @@
       </div>
 
       <form id="expenseForm">
-        <div class="form-group" style="margin-bottom: 12px;">
+        <div class="form-group" style="margin-bottom: 10px;">
           <label class="form-label">Expense Category</label>
           <select id="expenseCategory" class="form-select" required>
-            <option value="raw_oil">Raw Perfume Oils (Stock)</option>
+            <option value="raw_oil">Raw Perfume Oils Restock</option>
             <option value="raw_ethanol">Cosmetic Ethanol</option>
             <option value="raw_fixative">Perfume Fixative</option>
-            <option value="packaging_bottles">Bottles & Sprays</option>
+            <option value="packaging_bottles">Empty Bottles (6ml, 10ml, 30ml)</option>
             <option value="packaging_bags">Packaging Bags (Mifuko A6)</option>
             <option value="labels_printing">Stickers & Printing</option>
-            <option value="tech_stock">Tech Inventory Restock</option>
-            <option value="transport_delivery">Transport & Delivery</option>
-            <option value="marketing">Marketing & Ads</option>
-            <option value="equipment">Equipment & Tools</option>
-            <option value="owner_draw">Owner's Draw (Salary/Personal)</option>
+            <option value="transport_delivery">Transport & Boda / Courier</option>
+            <option value="equipment">Syringes & Lab Tools</option>
+            <option value="owner_draw">Owner's Draw (Personal Salary)</option>
             <option value="other_expense">Other Expense</option>
           </select>
         </div>
 
-        <div class="form-group" style="margin-bottom: 12px;">
+        <div class="form-group" style="margin-bottom: 10px;">
           <label class="form-label">Description</label>
-          <input type="text" id="expenseDescription" class="form-input" placeholder="e.g. 1L Ethanol restock or 12x 30ml bottles" required>
+          <input type="text" id="expenseDescription" class="form-input" placeholder="e.g. 100ml Vanilla 28 oil restock" required>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
           <div class="form-group">
-            <label class="form-label">Amount Paid (TZS)</label>
+            <label class="form-label">Amount (TZS)</label>
             <input type="number" id="expenseAmount" class="form-input" placeholder="25000" required>
           </div>
           <div class="form-group">
@@ -539,12 +509,12 @@
           </div>
         </div>
 
-        <div class="form-group" style="margin-bottom: 14px;">
+        <div class="form-group" style="margin-bottom: 12px;">
           <label class="form-label">Date</label>
           <input type="date" id="expenseDate" class="form-input" required>
         </div>
 
-        <div class="form-group" style="margin-bottom: 14px;">
+        <div class="form-group" style="margin-bottom: 12px;">
           <label class="form-label">Notes (Optional)</label>
           <input type="text" id="expenseNotes" class="form-input" placeholder="e.g. Bought from Kariakoo supplier">
         </div>
@@ -557,67 +527,108 @@
   </div>
 
   <!-- ============================================== -->
-  <!-- MODAL: ADD INVENTORY ITEM -->
+  <!-- MODAL: ADD RAW STOCK ITEM -->
   <!-- ============================================== -->
   <div id="newItemModal" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">+ Add New Inventory Item</h3>
+        <h3 class="modal-title">+ Add New Stock Item</h3>
         <button class="close-btn" data-close-modal="newItemModal">&times;</button>
       </div>
 
       <form id="newItemForm">
-        <div class="form-group" style="margin-bottom: 12px;">
+        <div class="form-group" style="margin-bottom: 10px;">
           <label class="form-label">Item Name</label>
-          <input type="text" id="newItemName" class="form-input" placeholder="e.g. Baccarat Rouge 540 (30ml)" required>
+          <input type="text" id="newItemName" class="form-input" placeholder="e.g. Baccarat Rouge 540 Oil" required>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
           <div class="form-group">
             <label class="form-label">Category</label>
             <select id="newItemCategory" class="form-select">
-              <option value="finished_perfume">Finished Perfume</option>
-              <option value="raw_material">Raw Oil / Solvent</option>
-              <option value="packaging">Packaging Material</option>
-              <option value="tech_gadget">Tech & Gadget</option>
+              <option value="raw_oil">Scent Oil</option>
+              <option value="raw_solvent">Ethanol / Fixative</option>
+              <option value="packaging">Empty Bottles / Bags</option>
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">Unit of Measure</label>
-            <input type="text" id="newItemUnit" class="form-input" value="bottles" placeholder="bottles, ml, pcs" required>
+            <label class="form-label">Unit</label>
+            <input type="text" id="newItemUnit" class="form-input" value="ml" placeholder="ml, L, pcs" required>
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
           <div class="form-group">
-            <label class="form-label">Current Quantity</label>
-            <input type="number" id="newItemQty" class="form-input" value="10" min="0" required>
+            <label class="form-label">Current Stock Quantity</label>
+            <input type="number" id="newItemQty" class="form-input" value="100" min="0" required>
           </div>
           <div class="form-group">
             <label class="form-label">Low Stock Alert Level</label>
-            <input type="number" id="newItemThreshold" class="form-input" value="3" min="1" required>
-          </div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
-          <div class="form-group">
-            <label class="form-label">Unit Cost (TZS)</label>
-            <input type="number" id="newItemCost" class="form-input" placeholder="9000">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Selling Price (TZS)</label>
-            <input type="number" id="newItemPrice" class="form-input" placeholder="35000">
+            <input type="number" id="newItemThreshold" class="form-input" value="20" min="1" required>
           </div>
         </div>
 
         <div class="modal-footer">
-          <button type="submit" class="btn-primary">Add Item to Stock</button>
+          <button type="submit" class="btn-primary">Add Item</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Bottom Navigation Bar (Mobile Thumb-Friendly) -->
+  <!-- ============================================== -->
+  <!-- MODAL: FULFILL ORDER & DEDUCT RAW MATERIALS -->
+  <!-- ============================================== -->
+  <div id="fulfillModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title text-cyan">✓ Complete Order & Blend</h3>
+        <button class="close-btn" data-close-modal="fulfillModal">&times;</button>
+      </div>
+
+      <form id="fulfillForm">
+        <div style="background: var(--bg-surface); padding: 10px 12px; border-radius: var(--radius-sm); margin-bottom: 12px; border-left: 3px solid var(--cyan);">
+          <div style="font-weight: 700; font-size: 0.92rem;" id="fulfillItemSummary">Coconut Passion + Vanilla 28 (30ml)</div>
+          <div style="font-size: 0.78rem; color: var(--emerald);" id="fulfillAmountSummary">Total Sale: 35,000 TZS</div>
+          <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">
+            *Automatically deducts exact oil, fixative, ethanol, and empty bottle from stock.
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label class="form-label">Payment Channel</label>
+          <select id="fulfillPaymentMethod" class="form-select">
+            <option value="mpesa">M-Pesa</option>
+            <option value="cash">Cash (Pesa Taslimu)</option>
+            <option value="airtel">Airtel Money</option>
+            <option value="tigo">Tigo Pesa</option>
+            <option value="bank">Bank Transfer</option>
+          </select>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+          <div class="form-group">
+            <label class="form-label">Customer Name</label>
+            <input type="text" id="fulfillCustomerName" class="form-input" placeholder="e.g. Juma" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone / WhatsApp</label>
+            <input type="tel" id="fulfillCustomerPhone" class="form-input" placeholder="07XXXXXXXX">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Delivery / Order Notes</label>
+          <input type="text" id="fulfillNotes" class="form-input" placeholder="e.g. Delivered to Posta, paid via Lipa Namba">
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" class="btn-primary" style="background: var(--emerald);">Record Sale & Deduct Stock</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Mobile Bottom Nav -->
   <nav class="bottom-nav">
     <button class="nav-item active" data-tab="tab-dashboard">
       <svg viewBox="0 0 24 24">
@@ -641,7 +652,7 @@
       <svg viewBox="0 0 24 24">
         <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
       </svg>
-      <span>Lab</span>
+      <span>Lab (SOP)</span>
     </button>
     <button class="nav-item" data-tab="tab-settings">
       <svg viewBox="0 0 24 24">
@@ -651,7 +662,6 @@
     </button>
   </nav>
 
-  <!-- PWA Service Worker Registration & App Controller Scripts -->
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
