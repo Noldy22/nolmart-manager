@@ -2,6 +2,15 @@
 
 A private, high-speed, local-first Progressive Web App (PWA) designed to manage **NolMart's** daily transactions, cash reconciliation, stock inventory, and perfume batch formulation compounding directly from your smartphone or desktop.
 
+[![Live Web App](https://img.shields.io/badge/Live%20App-noldy22.github.io%2Fnolmart--manager-emerald?style=for-the-badge&logo=googlechrome&logoColor=white)](https://noldy22.github.io/nolmart-manager/)
+
+### 📱 Scan to Open on Your Phone:
+<p align="left">
+  <img src="icons/qr-code.png" alt="Scan QR Code to Open on Phone" width="220" />
+</p>
+
+**Live URL**: [https://noldy22.github.io/nolmart-manager/](https://noldy22.github.io/nolmart-manager/)
+
 ---
 
 ## 🔒 100% Privacy Guarantee (Local-First Architecture)
