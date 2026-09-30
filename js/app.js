@@ -76,7 +76,10 @@ function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('NolMart PWA ServiceWorker ready:', reg.scope))
+        .then(reg => {
+          console.log('NolMart PWA ServiceWorker ready:', reg.scope);
+          reg.update();
+        })
         .catch(err => console.log('ServiceWorker failed:', err));
     });
   }

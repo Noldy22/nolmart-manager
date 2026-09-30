@@ -1,5 +1,5 @@
 // Service Worker for NolMart Business Manager (PWA)
-const CACHE_NAME = 'nolmart-ops-v1.0';
+const CACHE_NAME = 'nolmart-ops-v2.2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -14,49 +14,62 @@ const ASSETS_TO_CACHE = [
   './icons/favicon.svg'
 ];
 
-// Install: pre-cache all assets
+// Install: pre-cache all assets immediately
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
   );
 });
 
-// Activate: clean up outdated caches
+// Activate: clean up ALL old caches and take control
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
       );
     }).then(() => self.clients.claim())
   );
 });
 
-// Fetch: Stale-While-Revalidate strategy for offline reliability
+// Fetch strategy:
+// Navigation / HTML -> Network-First (ensures user always gets fresh UI changes; falls back to cache offline)
+// Static Assets -> Cache-First with Network Revalidation
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request)
+  const isNavigation = event.request.mode === 'navigate';
+
+  if (isNavigation) {
+    event.respondWith(
+      fetch(event.request)
         .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }
           return networkResponse;
         })
-        .catch(() => {
-          // Offline fallback
-          return cachedResponse;
-        });
+        .catch(() => caches.match('./index.html') || caches.match(event.request))
+    );
+    return;
+  }
 
-      return cachedResponse || fetchPromise;
-    })
+  // Non-navigation: Network first for JS/CSS in active development, fallback to cache
+  event.respondWith(
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const copy = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return networkResponse;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
