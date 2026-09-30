@@ -469,3 +469,19 @@ export async function importAllDataJSON(jsonString) {
   });
 }
 
+export async function clearAllLocalData() {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['transactions', 'inventory', 'batches'], 'readwrite');
+    tx.objectStore('transactions').clear();
+    tx.objectStore('inventory').clear();
+    tx.objectStore('batches').clear();
+
+    tx.oncomplete = () => {
+      checkAndSeedPerfumeInventory(db).then(() => resolve(true));
+    };
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+
+

@@ -773,7 +773,7 @@ async function loadAllData() {
 // ==========================================
 // INITIALIZATION
 // ==========================================
-document.addEventListener('DOMContentLoaded', async () => {
+async function startApp() {
   initPWA();
   initNavigation();
   initModals();
@@ -783,4 +783,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await loadAllData();
   renderSOPLab();
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startApp);
+} else {
+  startApp();
+}
