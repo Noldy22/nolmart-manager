@@ -207,7 +207,7 @@ body {
 /* Quick Action Buttons */
 .quick-action-bar {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-bottom: 14px;
   width: 100%;
@@ -218,14 +218,27 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 12px 10px;
+  padding: 10px 4px;
   border-radius: var(--radius-md);
   font-weight: 600;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   cursor: pointer;
   border: none;
   min-height: 48px;
   text-align: center;
+  white-space: nowrap;
+}
+
+@media (max-width: 380px) {
+  .btn-quick {
+    font-size: 0.74rem;
+    padding: 8px 3px;
+    gap: 4px;
+  }
+  .btn-quick svg {
+    width: 15px;
+    height: 15px;
+  }
 }
 
 .btn-sale {
@@ -238,6 +251,12 @@ body {
   background: linear-gradient(135deg, #f43f5e, #e11d48);
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(244, 63, 94, 0.3);
+}
+
+.btn-transfer {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
 }
 
 /* Filter Tabs */
@@ -377,7 +396,13 @@ body {
 
 @media (min-width: 600px) {
   .methods-grid {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .methods-grid {
+    grid-template-columns: repeat(6, 1fr);
   }
 }
 
@@ -562,6 +587,22 @@ body {
 
 .tx-income .tx-amount { color: var(--emerald); }
 .tx-expense .tx-amount { color: var(--rose); }
+.tx-transfer .tx-amount { color: var(--cyan); }
+
+.tx-transfer .tx-icon {
+  background: var(--cyan-glow);
+  color: var(--cyan);
+  border: 1px solid var(--cyan-border);
+}
+
+.tx-payment-badge.transfer-badge {
+  background: var(--cyan-glow);
+  color: var(--cyan);
+  border: 1px solid var(--cyan-border);
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
 
 /* Inventory Grid (Perfume Only) */
 .inventory-grid {
@@ -920,6 +961,26 @@ body {
 .btn-rebalance:active {
   transform: scale(0.97);
   background: rgba(56, 189, 248, 0.2);
+}
+
+.btn-transfer-sm {
+  background: rgba(2, 132, 199, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: var(--cyan);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-transfer-sm:active {
+  transform: scale(0.97);
+  background: rgba(2, 132, 199, 0.3);
 }
 
 /* Modals */

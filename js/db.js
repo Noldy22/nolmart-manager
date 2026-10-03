@@ -368,8 +368,9 @@ export async function getFinancialSummary(filterDateRange = 'all') {
     cash: 0,
     mpesa: 0,
     airtel: 0,
-    tigo: 0,
-    bank: 0
+    selcom: 0,
+    bank: 0,
+    tigo: 0
   };
 
   let allTimeMoneyIn = 0;
@@ -392,6 +393,22 @@ export async function getFinancialSummary(filterDateRange = 'all') {
       if (paymentBreakdown[method] !== undefined) {
         paymentBreakdown[method] -= totalOut;
       }
+    } else if (t.type === 'transfer') {
+      const fromMethod = (t.fromMethod || t.paymentMethod || 'cash').toLowerCase();
+      const toMethod = (t.toMethod || '').toLowerCase();
+      const totalOut = amt + fee;
+
+      // Only the transaction fee leaves the total business cash in hand
+      allTimeMoneyOut += fee;
+
+      // Source account loses principal + fee
+      if (paymentBreakdown[fromMethod] !== undefined) {
+        paymentBreakdown[fromMethod] -= totalOut;
+      }
+      // Destination account gains principal
+      if (paymentBreakdown[toMethod] !== undefined) {
+        paymentBreakdown[toMethod] += amt;
+      }
     }
   }
 
@@ -412,6 +429,11 @@ export async function getFinancialSummary(filterDateRange = 'all') {
         ownersDraw += totalOutflow;
       } else {
         totalExpenses += totalOutflow;
+      }
+    } else if (t.type === 'transfer') {
+      // The moved principal is not an expense, but the transfer fee IS a financial transaction expense
+      if (fee > 0) {
+        totalExpenses += fee;
       }
     }
   }

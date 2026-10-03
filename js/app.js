@@ -16,7 +16,8 @@ import {
 import {
   RECIPES_CATALOG,
   getSOPMeasurements,
-  calculateMaxTransactionCost
+  calculateMaxTransactionCost,
+  calculateTransferFee
 } from './calculator.js';
 
 import {
@@ -58,6 +59,19 @@ function showToast(message, type = 'info') {
 function formatTZS(amount) {
   const num = Math.round(Number(amount) || 0);
   return `${num.toLocaleString('en-TZ')} TZS`;
+}
+
+// Payment Channel Display Label Mapping
+function getChannelLabel(key) {
+  const map = {
+    cash: 'Cash',
+    mpesa: 'M-Pesa',
+    airtel: 'Airtel Money',
+    selcom: 'Selcom',
+    bank: 'Bank / CRDB',
+    tigo: 'Tigo Pesa'
+  };
+  return map[(key || '').toLowerCase()] || (key ? key.toUpperCase() : 'Cash');
 }
 
 function escapeHTML(str) {
@@ -160,6 +174,16 @@ function initModals() {
     updateExpenseCalculations();
     openModal('expenseModal');
   });
+
+  // Open Transfer Modal
+  const openTransferHandler = () => {
+    const dateInput = document.getElementById('transferDate');
+    if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+    updateTransferCalculations();
+    openModal('transferModal');
+  };
+  document.getElementById('openTransferModalBtn')?.addEventListener('click', openTransferHandler);
+  document.getElementById('openTransferFromChannelsBtn')?.addEventListener('click', openTransferHandler);
 
   // Open Rebalance Channel Modal
   document.getElementById('openRebalanceModalBtn')?.addEventListener('click', () => {
@@ -460,11 +484,167 @@ function initForms() {
       }
     });
   }
+
+  // 6. Transfer / Money Movement Form
+  const transferForm = document.getElementById('transferForm');
+  const transferFromEl = document.getElementById('transferFromMethod');
+  const transferToEl = document.getElementById('transferToMethod');
+  const transferAmountEl = document.getElementById('transferAmount');
+  const transferFeeEl = document.getElementById('transferFee');
+
+  if (transferFromEl) {
+    transferFromEl.addEventListener('change', () => {
+      if (transferToEl && transferToEl.value === transferFromEl.value) {
+        const options = Array.from(transferToEl.options).map(o => o.value);
+        const alt = options.find(val => val !== transferFromEl.value) || 'airtel';
+        transferToEl.value = alt;
+      }
+      updateTransferCalculations();
+    });
+  }
+
+  if (transferToEl) {
+    transferToEl.addEventListener('change', () => {
+      if (transferFromEl && transferFromEl.value === transferToEl.value) {
+        const options = Array.from(transferFromEl.options).map(o => o.value);
+        const alt = options.find(val => val !== transferToEl.value) || 'cash';
+        transferFromEl.value = alt;
+      }
+      updateTransferCalculations();
+    });
+  }
+
+  if (transferAmountEl) {
+    transferAmountEl.addEventListener('input', updateTransferCalculations);
+  }
+
+  if (transferFeeEl) {
+    transferFeeEl.addEventListener('input', () => {
+      const amt = Math.max(0, parseFloat(transferAmountEl?.value) || 0);
+      const fee = Math.max(0, parseFloat(transferFeeEl.value) || 0);
+      const sourceOutflowEl = document.getElementById('transferSourceOutflow');
+      if (sourceOutflowEl) sourceOutflowEl.textContent = `-${formatTZS(amt + fee)}`;
+    });
+  }
+
+  if (transferForm) {
+    transferForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fromMethod = transferFromEl.value;
+      const toMethod = transferToEl.value;
+      const amount = parseFloat(transferAmountEl.value) || 0;
+      let fee = parseFloat(transferFeeEl.value) || 0;
+      if (fromMethod === 'cash') fee = 0; // Enforce cash transfers have 0 fee
+      const date = document.getElementById('transferDate').value;
+      const notes = (document.getElementById('transferNotes')?.value || '').trim();
+
+      if (fromMethod === toMethod) {
+        showToast('Source and destination accounts must be different.', 'error');
+        return;
+      }
+
+      if (amount <= 0) {
+        showToast('Transfer amount must be greater than 0 TZS.', 'error');
+        return;
+      }
+
+      try {
+        const fromName = getChannelLabel(fromMethod);
+        const toName = getChannelLabel(toMethod);
+
+        await addTransaction({
+          type: 'transfer',
+          category: 'account_transfer',
+          description: `Transfer: ${fromName} → ${toName}`,
+          amount,
+          fee,
+          fromMethod,
+          toMethod,
+          paymentMethod: fromMethod,
+          date,
+          notes: fee > 0 ? `${notes ? notes + ' | ' : ''}Tariff: ${formatTZS(fee)}` : notes
+        });
+
+        closeModal('transferModal');
+        transferForm.reset();
+        showToast(`⇄ Moved ${formatTZS(amount)}: ${fromName} → ${toName}${fee > 0 ? ` (Fee: ${formatTZS(fee)})` : ' (0 Fee)'}`, 'success');
+        await loadAllData();
+      } catch (err) {
+        showToast('Error recording transfer: ' + err.message, 'error');
+      }
+    });
+  }
 }
 
 // ==========================================
-// DYNAMIC EXPENSE & REBALANCE HELPERS
+// DYNAMIC EXPENSE, TRANSFER & REBALANCE HELPERS
 // ==========================================
+function updateTransferCalculations() {
+  const fromEl = document.getElementById('transferFromMethod');
+  const toEl = document.getElementById('transferToMethod');
+  const amountEl = document.getElementById('transferAmount');
+  const feeEl = document.getElementById('transferFee');
+  const feeNoticeEl = document.getElementById('transferFeeNotice');
+  const fromHintEl = document.getElementById('transferFromBalanceHint');
+  const toHintEl = document.getElementById('transferToBalanceHint');
+  const sourceOutflowEl = document.getElementById('transferSourceOutflow');
+  const destInflowEl = document.getElementById('transferDestInflow');
+
+  if (!fromEl || !toEl) return;
+
+  const from = fromEl.value;
+  const to = toEl.value;
+  const breakdown = state.financialSummary ? state.financialSummary.paymentBreakdown : {};
+
+  if (fromHintEl) {
+    const fromBal = breakdown[from] !== undefined ? breakdown[from] : 0;
+    fromHintEl.textContent = `Available: ${formatTZS(fromBal)}`;
+  }
+
+  if (toHintEl) {
+    const toBal = breakdown[to] !== undefined ? breakdown[to] : 0;
+    toHintEl.textContent = `Available: ${formatTZS(toBal)}`;
+  }
+
+  const amt = Math.max(0, parseFloat(amountEl?.value) || 0);
+
+  let fee = 0;
+  if (from === 'cash') {
+    // Explicit User Rule: Movement from cash has NO fee (0 fee)
+    fee = 0;
+    if (feeEl) {
+      feeEl.value = 0;
+      feeEl.disabled = true;
+    }
+    if (feeNoticeEl) {
+      feeNoticeEl.textContent = '✓ Cash deposit / payment has NO fee (0 TZS).';
+      feeNoticeEl.style.color = 'var(--emerald)';
+    }
+  } else {
+    // Non-cash transfers are subjected to payment fees
+    if (feeEl) {
+      feeEl.disabled = false;
+      if (document.activeElement !== feeEl) {
+        fee = calculateTransferFee(amt, from, to);
+        feeEl.value = fee;
+      } else {
+        fee = Math.max(0, parseFloat(feeEl.value) || 0);
+      }
+    }
+    if (feeNoticeEl) {
+      feeNoticeEl.textContent = `⚡ Transfer tariff (+${formatTZS(fee)}) auto-calculated for ${getChannelLabel(from)}. Editable.`;
+      feeNoticeEl.style.color = 'var(--amber)';
+    }
+  }
+
+  const totalSourceDeduction = amt + fee;
+  if (sourceOutflowEl) {
+    sourceOutflowEl.textContent = `-${formatTZS(totalSourceDeduction)}`;
+  }
+  if (destInflowEl) {
+    destInflowEl.textContent = `+${formatTZS(amt)}`;
+  }
+}
 function updateExpenseCalculations() {
   const expenseAmountEl = document.getElementById('expenseAmount');
   const expenseMethodEl = document.getElementById('expensePaymentMethod');
@@ -574,8 +754,10 @@ async function renderDashboard() {
   document.getElementById('methodCash').textContent = formatTZS(summary.paymentBreakdown.cash);
   document.getElementById('methodMpesa').textContent = formatTZS(summary.paymentBreakdown.mpesa);
   document.getElementById('methodAirtel').textContent = formatTZS(summary.paymentBreakdown.airtel);
-  document.getElementById('methodTigo').textContent = formatTZS(summary.paymentBreakdown.tigo);
+  const selcomEl = document.getElementById('methodSelcom');
+  if (selcomEl) selcomEl.textContent = formatTZS(summary.paymentBreakdown.selcom || 0);
   document.getElementById('methodBank').textContent = formatTZS(summary.paymentBreakdown.bank);
+  document.getElementById('methodTigo').textContent = formatTZS(summary.paymentBreakdown.tigo);
 
   // Low stock banner
   const lowStock = state.inventory.filter(i => (i.quantity || 0) <= (i.minThreshold || 0));
@@ -603,8 +785,42 @@ async function renderDashboard() {
 
 function renderTxItemHTML(t) {
   const isIncome = t.type === 'income';
+  const isTransfer = t.type === 'transfer';
   const isRebalance = t.category === 'balance_adjustment';
   const fee = Number(t.fee) || 0;
+
+  if (isTransfer) {
+    const fromName = getChannelLabel(t.fromMethod || t.paymentMethod || 'cash');
+    const toName = getChannelLabel(t.toMethod || '');
+    const amt = Number(t.amount) || 0;
+    const totalDeducted = amt + fee;
+
+    return `
+      <div class="tx-item tx-transfer">
+        <div class="tx-left">
+          <div class="tx-icon">⇄</div>
+          <div class="tx-details">
+            <span class="tx-name">${escapeHTML(t.description || `Transfer: ${fromName} → ${toName}`)}</span>
+            <span class="tx-meta">
+              <span>${t.date}</span>
+              <span>•</span>
+              <span class="tx-payment-badge transfer-badge">${escapeHTML(fromName)} → ${escapeHTML(toName)}</span>
+              ${fee > 0 ? `<span style="color: var(--amber); font-weight: 600;">• Fee: ${formatTZS(fee)}</span>` : '<span style="color: var(--emerald); font-weight: 500;">• Free (0 Fee)</span>'}
+              ${t.notes ? `<span>• ${escapeHTML(t.notes)}</span>` : ''}
+            </span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="text-align: right;">
+            <span class="tx-amount">${formatTZS(amt)}</span>
+            ${fee > 0 ? `<div style="font-size: 0.68rem; color: var(--text-muted);">Outflow: -${formatTZS(totalDeducted)}</div>` : ''}
+          </div>
+          <button class="btn-stock-adjust delete-tx-btn" data-tx-id="${t.id}" title="Delete" style="color: var(--text-muted); width: 26px; height: 26px; font-size: 0.85rem;">&times;</button>
+        </div>
+      </div>
+    `;
+  }
+
   const totalAmount = t.amount + fee;
   const sign = isIncome ? '+' : '-';
   const icon = isRebalance ? '⚖️' : (isIncome ? '↑' : '↓');
@@ -618,7 +834,7 @@ function renderTxItemHTML(t) {
           <span class="tx-meta">
             <span>${t.date}</span>
             <span>•</span>
-            <span class="tx-payment-badge">${(t.paymentMethod || 'cash').toUpperCase()}</span>
+            <span class="tx-payment-badge">${escapeHTML(getChannelLabel(t.paymentMethod || 'cash'))}</span>
             ${fee > 0 ? `<span style="color: var(--amber); font-weight: 600;">• Fee: ${formatTZS(fee)}</span>` : ''}
             ${t.customerName ? `<span>• ${escapeHTML(t.customerName)}</span>` : ''}
           </span>

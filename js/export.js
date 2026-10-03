@@ -48,21 +48,28 @@ export async function exportTransactionsToCSV() {
     return;
   }
 
-  const headers = ['ID', 'Date', 'Type', 'Category', 'Description', 'Quantity', 'Amount (TZS)', 'Payment Method', 'Customer Name', 'Customer Phone', 'Notes'];
+  const headers = ['ID', 'Date', 'Type', 'Category', 'Description', 'Quantity', 'Amount (TZS)', 'Fee (TZS)', 'Payment Channel / Movement', 'Customer Name', 'Customer Phone', 'Notes'];
   
-  const rows = txs.map(t => [
-    t.id,
-    t.date,
-    t.type.toUpperCase(),
-    t.category || '',
-    `"${(t.description || '').replace(/"/g, '""')}"`,
-    t.quantity || 1,
-    t.amount || 0,
-    (t.paymentMethod || 'cash').toUpperCase(),
-    `"${(t.customerName || '').replace(/"/g, '""')}"`,
-    `"${(t.customerPhone || '').replace(/"/g, '""')}"`,
-    `"${(t.notes || '').replace(/"/g, '""')}"`
-  ]);
+  const rows = txs.map(t => {
+    const channelDisplay = t.type === 'transfer'
+      ? `${(t.fromMethod || t.paymentMethod || 'CASH').toUpperCase()} -> ${(t.toMethod || '').toUpperCase()}`
+      : (t.paymentMethod || 'cash').toUpperCase();
+
+    return [
+      t.id,
+      t.date,
+      t.type.toUpperCase(),
+      t.category || '',
+      `"${(t.description || '').replace(/"/g, '""')}"`,
+      t.quantity || 1,
+      t.amount || 0,
+      t.fee || 0,
+      `"${channelDisplay}"`,
+      `"${(t.customerName || '').replace(/"/g, '""')}"`,
+      `"${(t.customerPhone || '').replace(/"/g, '""')}"`,
+      `"${(t.notes || '').replace(/"/g, '""')}"`
+    ];
+  });
 
   const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
   const dateStr = new Date().toISOString().split('T')[0];

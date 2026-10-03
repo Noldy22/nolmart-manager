@@ -380,8 +380,23 @@ export function calculateMaxTransactionCost(amount, paymentMethod) {
   if (amt <= 300000) return 8000;
   if (amt <= 500000) return 9500;
   if (amt <= 1000000) return 12000;
-
   return Math.min(18000, Math.round(amt * 0.015));
+}
+
+// Calculate transfer / money movement fee between storage methods.
+// Rule: Transfers originating from cash (e.g. Cash -> M-Pesa/Airtel/Selcom/Bank) have ZERO fees.
+// Transfers originating from electronic accounts (M-Pesa, Airtel Money, Selcom, Bank) incur standard tariffs.
+export function calculateTransferFee(amount, fromMethod, toMethod) {
+  const amt = Math.max(0, parseFloat(amount) || 0);
+  const from = (fromMethod || 'cash').toLowerCase();
+
+  // Cash deposits / wakala cash-in has no fee to sender
+  if (amt === 0 || from === 'cash') {
+    return 0;
+  }
+
+  // Electronic channels (M-Pesa, Airtel, Selcom, Bank) incur tariffs
+  return calculateMaxTransactionCost(amt, from);
 }
 
 // Returns exact measurements and SOP steps based on the bottle size
