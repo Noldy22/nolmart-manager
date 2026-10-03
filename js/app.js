@@ -27,6 +27,8 @@ import {
   exportInventoryToCSV
 } from './export.js';
 
+import { initCustomSelects } from './custom-select.js';
+
 // App State
 let state = {
   currentTab: 'tab-dashboard',
@@ -221,13 +223,29 @@ function initModals() {
 
   // Sale Modal Type selector changes default price & description
   const saleTypeSelect = document.getElementById('saleProductTypeSelect');
-  if (saleTypeSelect) {
-    saleTypeSelect.addEventListener('change', () => {
-      const opt = saleTypeSelect.options[saleTypeSelect.selectedIndex];
-      if (opt.value !== 'custom') {
-        document.getElementById('saleAmount').value = opt.value;
+  const saleQtyEl = document.getElementById('saleQuantity');
+  const saleDescEl = document.getElementById('saleDescription');
+  const saleFormEl = document.getElementById('saleForm');
+  const applySaleType = () => {
+    const opt = saleTypeSelect.options[saleTypeSelect.selectedIndex];
+    const qty = Math.max(1, parseInt(saleQtyEl.value, 10) || 1);
+    if (opt.value !== 'custom') {
+      document.getElementById('saleAmount').value = Number(opt.value) * qty;
+    }
+    // Auto-fill description for car fresheners (only if empty or previously auto-filled)
+    if (opt.dataset.category === 'car_freshener_sale') {
+      if (!saleDescEl.value.trim() || saleDescEl.value === saleFormEl.dataset.autoDesc) {
+        saleDescEl.value = opt.dataset.desc;
+        saleFormEl.dataset.autoDesc = opt.dataset.desc;
       }
-    });
+    } else if (saleDescEl.value === saleFormEl.dataset.autoDesc) {
+      saleDescEl.value = '';
+      saleFormEl.dataset.autoDesc = '';
+    }
+  };
+  if (saleTypeSelect) {
+    saleTypeSelect.addEventListener('change', applySaleType);
+    saleQtyEl?.addEventListener('input', applySaleType);
   }
 }
 
@@ -259,10 +277,15 @@ function initForms() {
       const date = document.getElementById('saleDate').value;
       const notes = document.getElementById('saleNotes').value.trim();
 
+      const typeSel = document.getElementById('saleProductTypeSelect');
+      const selOpt = typeSel.options[typeSel.selectedIndex];
+      const saleCategory = (selOpt && selOpt.dataset.category) || 'perfume_sale';
+      const isCarSale = saleCategory === 'car_freshener_sale';
+
       try {
         await addTransaction({
           type: 'income',
-          category: 'perfume_sale',
+          category: saleCategory,
           description,
           quantity,
           amount,
@@ -273,9 +296,19 @@ function initForms() {
           notes
         });
 
+        let stockNote = '';
+        if (isCarSale) {
+          const unitItem = (await getAllInventory()).find(i => i.category === 'car_freshener' && i.subCategory === 'car_freshener_unit');
+          if (unitItem) {
+            await adjustStock(unitItem.id, -quantity);
+            stockNote = ` • stock ${Math.max(0, (unitItem.quantity || 0) - quantity)} left`;
+          }
+        }
+
         closeModal('saleModal');
         saleForm.reset();
-        showToast(`Sale recorded: +${formatTZS(amount)} (${paymentMethod.toUpperCase()})`, 'success');
+        saleForm.dataset.autoDesc = '';
+        showToast(`${isCarSale ? '🚗 Car freshener sale' : 'Sale'} recorded: +${formatTZS(amount)} (${paymentMethod.toUpperCase()})${stockNote}`, 'success');
         await loadAllData();
       } catch (err) {
         showToast('Error recording sale: ' + err.message, 'error');
@@ -759,6 +792,15 @@ async function renderDashboard() {
   document.getElementById('methodBank').textContent = formatTZS(summary.paymentBreakdown.bank);
   document.getElementById('methodTigo').textContent = formatTZS(summary.paymentBreakdown.tigo);
 
+  // Sales by product line
+  const carSales = summary.carFreshenerSales || 0;
+  const otherSales = summary.totalSales - carSales;
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setText('plPerfumeAmount', formatTZS(otherSales));
+  setText('plPerfumeMeta', 'Perfumes, rollers, sets & dropship');
+  setText('plCarAmount', formatTZS(carSales));
+  setText('plCarMeta', `${summary.carFreshenerUnits || 0} unit${(summary.carFreshenerUnits || 0) === 1 ? '' : 's'} sold • ${summary.carFreshenerCount || 0} sale${(summary.carFreshenerCount || 0) === 1 ? '' : 's'}`);
+
   // Low stock banner
   const lowStock = state.inventory.filter(i => (i.quantity || 0) <= (i.minThreshold || 0));
   const banner = document.getElementById('lowStockBanner');
@@ -823,7 +865,8 @@ function renderTxItemHTML(t) {
 
   const totalAmount = t.amount + fee;
   const sign = isIncome ? '+' : '-';
-  const icon = isRebalance ? '⚖️' : (isIncome ? '↑' : '↓');
+  const isCar = t.category === 'car_freshener_sale' || t.category === 'car_freshener_supplies';
+  const icon = isRebalance ? '⚖️' : (isCar ? '🚗' : (isIncome ? '↑' : '↓'));
 
   return `
     <div class="tx-item ${isIncome ? 'tx-income' : 'tx-expense'}">
@@ -873,7 +916,11 @@ function renderTransactionsTab() {
   const typeFilter = document.getElementById('txTypeFilter')?.value || 'all';
 
   let list = state.transactions;
-  if (typeFilter !== 'all') list = list.filter(t => t.type === typeFilter);
+  if (typeFilter === 'car_freshener') {
+    list = list.filter(t => t.category === 'car_freshener_sale' || t.category === 'car_freshener_supplies');
+  } else if (typeFilter !== 'all') {
+    list = list.filter(t => t.type === typeFilter);
+  }
 
   if (searchTerm) {
     list = list.filter(t =>
@@ -1213,8 +1260,35 @@ async function startApp() {
   initSOPLab();
   initSettingsAndExports();
 
+  await openDatabase();
+  await seedCarFreshenerStock();
+
   await loadAllData();
   renderSOPLab();
+  initCustomSelects();
+}
+
+// One-time: add a finished-unit stock row for Car Air Fresheners so sales can deduct from it
+async function seedCarFreshenerStock() {
+  try {
+    if (localStorage.getItem('nolmart_car_freshener_seeded')) return;
+    const inv = await getAllInventory();
+    if (!inv.some(i => i.category === 'car_freshener')) {
+      await addInventoryItem({
+        name: 'Strawberry Car Air Freshener (finished units)',
+        category: 'car_freshener',
+        subCategory: 'car_freshener_unit',
+        quantity: 0,
+        unit: 'pcs',
+        unitCost: 0,
+        sellingPrice: 10000,
+        minThreshold: 3
+      });
+    }
+    localStorage.setItem('nolmart_car_freshener_seeded', '1');
+  } catch (e) {
+    console.warn('Car freshener seed skipped:', e);
+  }
 }
 
 if (document.readyState === 'loading') {

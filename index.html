@@ -165,6 +165,23 @@
         </div>
       </div>
 
+      <!-- Product Line Sales Breakdown -->
+      <div class="product-lines-card">
+        <div class="card-heading"><span>Sales by Product Line</span></div>
+        <div class="product-lines-grid">
+          <div class="product-line-item pl-perfume">
+            <span class="pl-name">Perfumes &amp; Other</span>
+            <span class="pl-amount" id="plPerfumeAmount">0 TZS</span>
+            <span class="pl-meta" id="plPerfumeMeta">0 sales</span>
+          </div>
+          <div class="product-line-item pl-car">
+            <span class="pl-name">🚗 Car Air Fresheners</span>
+            <span class="pl-amount" id="plCarAmount">0 TZS</span>
+            <span class="pl-meta" id="plCarMeta">0 units sold</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Money Channels Breakdown -->
       <div class="money-methods-card">
         <div class="card-heading" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
@@ -242,6 +259,7 @@
             <option value="income">Income (+)</option>
             <option value="expense">Expense (-)</option>
             <option value="transfer">Transfers (⇄)</option>
+            <option value="car_freshener">🚗 Car Fresheners</option>
           </select>
         </div>
 
@@ -272,6 +290,7 @@
           <button class="filter-tab" data-inv-filter="raw_oil">Scent Oils (ml)</button>
           <button class="filter-tab" data-inv-filter="raw_solvent">Ethanol & Fixative</button>
           <button class="filter-tab" data-inv-filter="packaging">Empty Bottles & Bags</button>
+          <button class="filter-tab" data-inv-filter="car_freshener">🚗 Car Fresheners</button>
         </div>
 
         <!-- Inventory Grid -->
@@ -419,12 +438,20 @@
         <div class="form-group" style="margin-bottom: 10px;">
           <label class="form-label">Product / Sale Type</label>
           <select id="saleProductTypeSelect" class="form-select">
-            <option value="35000" data-desc="30ml Perfume Spray">30ml Perfume Spray (35,000 TZS)</option>
-            <option value="15000" data-desc="10ml Perfume Spray">10ml Perfume Spray (15,000 TZS)</option>
-            <option value="7000" data-desc="6ml Pocket Roller">6ml Pocket Roller (7,000 TZS)</option>
-            <option value="20000" data-desc="Discovery Trio (3x 6ml Rollers)">Discovery Trio (3x 6ml) (20,000 TZS)</option>
-            <option value="28000" data-desc="Executive Duo (2x 10ml Sprays)">Executive Duo (2x 10ml) (28,000 TZS)</option>
-            <option value="custom" data-desc="Tech Dropship / Custom">Tech Dropship / Custom Sale</option>
+            <optgroup label="Perfumes">
+              <option value="35000" data-desc="30ml Perfume Spray">30ml Perfume Spray (35,000 TZS)</option>
+              <option value="15000" data-desc="10ml Perfume Spray">10ml Perfume Spray (15,000 TZS)</option>
+              <option value="7000" data-desc="6ml Pocket Roller">6ml Pocket Roller (7,000 TZS)</option>
+              <option value="20000" data-desc="Discovery Trio (3x 6ml Rollers)">Discovery Trio (3x 6ml) (20,000 TZS)</option>
+              <option value="28000" data-desc="Executive Duo (2x 10ml Sprays)">Executive Duo (2x 10ml) (28,000 TZS)</option>
+            </optgroup>
+            <optgroup label="Car Air Fresheners">
+              <option value="10000" data-desc="Strawberry Car Air Freshener" data-category="car_freshener_sale">🚗 Car Air Freshener - Strawberry (10,000 TZS)</option>
+              <option value="10000" data-desc="Car Air Freshener" data-category="car_freshener_sale">🚗 Car Air Freshener - Other Scent (10,000 TZS)</option>
+            </optgroup>
+            <optgroup label="Other">
+              <option value="custom" data-desc="Tech Dropship / Custom">Tech Dropship / Custom Sale</option>
+            </optgroup>
           </select>
         </div>
 
@@ -504,6 +531,7 @@
             <option value="packaging_bottles">Empty Bottles</option>
             <option value="packaging_bags">Packaging Bags</option>
             <option value="labels_printing">Stickers & Printing</option>
+            <option value="car_freshener_supplies">🚗 Car Freshener Supplies (bottles, wood caps, cords)</option>
             <option value="transport_delivery">Transport & Boda / Courier</option>
             <option value="equipment">Syringes & Lab Tools</option>
             <option value="owner_draw">Owner's Draw</option>
@@ -669,6 +697,7 @@
               <option value="raw_oil">Scent Oil</option>
               <option value="raw_solvent">Ethanol / Fixative</option>
               <option value="packaging">Empty Bottles / Bags</option>
+              <option value="car_freshener">🚗 Car Fresheners (units / parts)</option>
             </select>
           </div>
           <div class="form-group">

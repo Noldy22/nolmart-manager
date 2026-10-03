@@ -1,5 +1,5 @@
 // Service Worker for NolMart Business Manager (PWA)
-const CACHE_NAME = 'nolmart-ops-v3.2';
+const CACHE_NAME = 'nolmart-ops-v3.3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const ASSETS_TO_CACHE = [
   './js/app.js',
   './js/calculator.js',
   './js/export.js',
+  './js/custom-select.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',

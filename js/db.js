@@ -363,6 +363,9 @@ export async function getFinancialSummary(filterDateRange = 'all') {
   let totalExpenses = 0;
   let capitalInjected = 0;
   let ownersDraw = 0;
+  let carFreshenerSales = 0;
+  let carFreshenerUnits = 0;
+  let carFreshenerCount = 0;
 
   const paymentBreakdown = {
     cash: 0,
@@ -423,6 +426,11 @@ export async function getFinancialSummary(filterDateRange = 'all') {
         capitalInjected += amount;
       } else {
         totalSales += amount;
+        if (t.category === 'car_freshener_sale') {
+          carFreshenerSales += amount;
+          carFreshenerUnits += Number(t.quantity) || 1;
+          carFreshenerCount += 1;
+        }
       }
     } else if (t.type === 'expense') {
       if (t.category === 'owner_draw') {
@@ -451,6 +459,9 @@ export async function getFinancialSummary(filterDateRange = 'all') {
     ownersDraw,
     expectedCashInHand,
     paymentBreakdown,
+    carFreshenerSales,
+    carFreshenerUnits,
+    carFreshenerCount,
     totalTransactions: filtered.length
   };
 }

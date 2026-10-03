@@ -1180,3 +1180,147 @@ body {
   border-color: var(--rose-border);
   background: linear-gradient(135deg, rgba(244, 63, 94, 0.2), var(--bg-surface-elevated));
 }
+
+/* ==========================================
+   THEMED DROPDOWNS (custom-select.js)
+   ========================================== */
+.cs-wrap { position: relative; width: 100%; }
+
+.cs-native {
+  position: absolute !important;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cs-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: #141c2e;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: var(--text-primary);
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.cs-trigger .cs-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-trigger .cs-chevron { flex-shrink: 0; color: var(--cyan); transition: transform 0.2s ease; }
+.cs-trigger:focus-visible,
+.cs-trigger.cs-open {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+  background: #172138;
+}
+.cs-trigger.cs-open .cs-chevron { transform: rotate(180deg); }
+.cs-trigger:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.cs-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: transparent;
+  display: none;
+}
+.cs-backdrop.open { display: block; }
+
+.cs-panel {
+  position: fixed;
+  z-index: 9999;
+  display: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #0f172a;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  padding: 6px;
+}
+.cs-panel.open { display: block; }
+
+.cs-option {
+  padding: 12px 12px;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cs-option:hover,
+.cs-option.cs-focus { background: rgba(56, 189, 248, 0.12); }
+.cs-option.cs-selected {
+  background: rgba(56, 189, 248, 0.18);
+  color: var(--cyan);
+  font-weight: 700;
+}
+.cs-option.cs-selected::after { content: '✓'; font-weight: 800; }
+.cs-option.cs-disabled { opacity: 0.4; cursor: not-allowed; }
+
+.cs-group {
+  padding: 10px 12px 4px;
+  color: var(--cyan);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+/* Mobile: bottom sheet */
+.cs-panel.cs-sheet {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  width: 100%;
+  max-height: 60vh;
+  border-radius: 18px 18px 0 0;
+  border-bottom: none;
+  padding: 10px 8px calc(14px + env(safe-area-inset-bottom));
+}
+.cs-panel.cs-sheet::before {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(148, 163, 184, 0.4);
+  margin: 0 auto 8px;
+}
+.cs-backdrop.open { background: rgba(2, 6, 23, 0.55); }
+@media (min-width: 641px) { .cs-backdrop.open { background: transparent; } }
+
+/* Car freshener product-line card */
+.product-lines-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 12px);
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.product-lines-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.product-line-item {
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.product-line-item .pl-name { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
+.product-line-item .pl-amount { font-size: 1rem; font-weight: 800; color: var(--text-primary); }
+.product-line-item .pl-meta { font-size: 0.7rem; color: var(--text-muted); }
+.product-line-item.pl-car { border-left: 3px solid var(--cyan); }
+.product-line-item.pl-perfume { border-left: 3px solid var(--emerald); }
