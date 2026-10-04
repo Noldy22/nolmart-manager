@@ -207,8 +207,8 @@ body {
 /* Quick Action Buttons */
 .quick-action-bar {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
   margin-bottom: 14px;
   width: 100%;
 }
@@ -217,27 +217,27 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px 4px;
+  gap: 4px;
+  padding: 8px 2px;
   border-radius: var(--radius-md);
   font-weight: 600;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   cursor: pointer;
   border: none;
-  min-height: 48px;
+  min-height: 46px;
   text-align: center;
   white-space: nowrap;
 }
 
 @media (max-width: 380px) {
   .btn-quick {
-    font-size: 0.74rem;
-    padding: 8px 3px;
-    gap: 4px;
+    font-size: 0.68rem;
+    padding: 6px 1px;
+    gap: 2px;
   }
   .btn-quick svg {
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
   }
 }
 
@@ -257,6 +257,12 @@ body {
   background: linear-gradient(135deg, #0284c7, #0369a1);
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+}
+
+.btn-gift {
+  background: linear-gradient(135deg, #ec4899, #db2777);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
 }
 
 /* Filter Tabs */
@@ -1337,3 +1343,45 @@ body {
 .product-line-item .pl-meta { font-size: 0.7rem; color: var(--text-muted); }
 .product-line-item.pl-car { border-left: 3px solid var(--cyan); }
 .product-line-item.pl-perfume { border-left: 3px solid var(--emerald); }
+
+/* Lab Mode Toggle Buttons */
+.lab-mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.btn-lab-toggle {
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+.btn-lab-toggle.active {
+  border-color: var(--emerald) !important;
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
+}
+
+/* Gifts Strategy & Ledger Card */
+.gift-strategy-card {
+  transition: border-color 0.2s ease;
+}
+.gift-purpose-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(236, 72, 153, 0.15);
+  color: #f472b6;
+  border: 1px solid rgba(236, 72, 153, 0.3);
+}
+.gift-deducted-pill {
+  display: inline-block;
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--emerald);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+

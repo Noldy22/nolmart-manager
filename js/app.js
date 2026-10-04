@@ -15,21 +15,29 @@ import {
   localDateStr,
   getSetting,
   setSetting,
-  restockInventoryItem
+  restockInventoryItem,
+  getAllGifts,
+  addGift,
+  deleteGift,
+  getGiftsSummary
 } from './db.js';
 
 import {
   RECIPES_CATALOG,
   getSOPMeasurements,
   calculateMaxTransactionCost,
-  calculateTransferFee
+  calculateTransferFee,
+  CAR_AIR_FRESHENER_RECIPES,
+  CAR_AIR_FRESHENER_FORMATS,
+  getCarAirFreshenerMeasurements
 } from './calculator.js';
 
 import {
   downloadFullBackup,
   restoreFromFile,
   exportTransactionsToCSV,
-  exportInventoryToCSV
+  exportInventoryToCSV,
+  exportGiftsToCSV
 } from './export.js';
 
 import { initCustomSelects } from './custom-select.js';
@@ -44,6 +52,11 @@ let state = {
   financialSummary: null,
   selectedRecipeId: RECIPES_CATALOG[0].id,
   selectedBottleSize: 30,
+  activeLabMode: 'perfume',
+  selectedCarRecipeId: CAR_AIR_FRESHENER_RECIPES[0].id,
+  selectedCarFormat: 'hanging_bottle',
+  gifts: [],
+  giftPeriod: 'all',
   activeSOPMeasurements: null,
   deferredInstallPrompt: null
 };
@@ -142,6 +155,7 @@ function initNavigation() {
 
   document.getElementById('viewAllTxBtn')?.addEventListener('click', () => switchTab('tab-transactions'));
   document.getElementById('goToInventoryFromAlert')?.addEventListener('click', () => switchTab('tab-inventory'));
+  document.getElementById('viewGiftsTabBtn')?.addEventListener('click', () => switchTab('tab-gifts'));
 }
 
 function switchTab(tabId) {
@@ -161,6 +175,7 @@ function switchTab(tabId) {
   else if (tabId === 'tab-transactions') renderTransactionsTab();
   else if (tabId === 'tab-inventory') renderInventoryTab();
   else if (tabId === 'tab-calculator') renderSOPLab();
+  else if (tabId === 'tab-gifts') renderGiftsTab();
 }
 
 // ==========================================
@@ -210,11 +225,29 @@ function initModals() {
     openModal('newItemModal');
   });
 
+  // Open Gift / Complimentary Modal
+  const openGiftHandler = () => {
+    const dateInput = document.getElementById('giftDate');
+    if (dateInput) dateInput.value = localDateStr();
+    updateGiftModalDefaults();
+    openModal('giftModal');
+  };
+  document.getElementById('openGiftModalBtn')?.addEventListener('click', openGiftHandler);
+  document.getElementById('openGiftModalFromTabBtn')?.addEventListener('click', openGiftHandler);
+
+  const giftProductSelect = document.getElementById('giftProductTypeSelect');
+  giftProductSelect?.addEventListener('change', updateGiftModalDefaults);
+  const giftDescInput = document.getElementById('giftDescription');
+  giftDescInput?.addEventListener('input', () => {
+    giftDescInput.dataset.autoFilled = 'false';
+  });
+
   // Open Fulfill Order Modal from SOP Lab
   document.getElementById('openFulfillOrderBtn')?.addEventListener('click', () => {
     if (!state.activeSOPMeasurements) return;
     const m = state.activeSOPMeasurements;
-    document.getElementById('fulfillItemSummary').textContent = `${m.recipe.name} (${m.size}ml)`;
+    const itemTitle = m.isCarFreshener ? `${m.recipe.name} (${m.format.name})` : `${m.recipe.name} (${m.size}ml)`;
+    document.getElementById('fulfillItemSummary').textContent = itemTitle;
     document.getElementById('fulfillAmountSummary').textContent = `Sale Price: ${formatTZS(m.sellingPrice)}`;
     openModal('fulfillModal');
   });
@@ -337,6 +370,28 @@ function openModal(modalId) {
 function closeModal(modalId) {
   const modal = document.getElementById(modalId);
   if (modal) modal.classList.remove('open');
+}
+
+function updateGiftModalDefaults() {
+  const select = document.getElementById('giftProductTypeSelect');
+  if (!select) return;
+  const opt = select.options[select.selectedIndex];
+  if (!opt) return;
+
+  const cost = opt.dataset.cost;
+  const retail = opt.dataset.retail;
+  const desc = opt.dataset.desc;
+
+  const costEl = document.getElementById('giftProductionCost');
+  const retailEl = document.getElementById('giftRetailValue');
+  const descEl = document.getElementById('giftDescription');
+
+  if (costEl && cost !== undefined) costEl.value = cost;
+  if (retailEl && retail !== undefined) retailEl.value = retail;
+  if (descEl && desc && (!descEl.value || descEl.dataset.autoFilled === 'true')) {
+    descEl.value = desc;
+    descEl.dataset.autoFilled = 'true';
+  }
 }
 
 // ==========================================
@@ -476,20 +531,47 @@ function initForms() {
       const notes = source ? `[${source}] Blended on-demand via SOP. ${rawNotes}`.trim() : `Blended on-demand via SOP. ${rawNotes}`.trim();
 
       try {
-        // 1. Deduct raw materials from stock based on SOP 60:40 formula
-        const deductions = await deductIngredientsForBlend({
-          ingredients: m.ingredients,
-          fixativeDrops: m.fixativeDrops,
-          ethanolMl: m.ethanolMl,
-          bottleSize: m.size,
-          bottleCount: 1
-        });
+        let deductions = [];
+        let category = '';
+        let description = '';
+
+        if (m.isCarFreshener) {
+          category = 'car_freshener_sale';
+          description = `${m.recipe.name} (${m.format.name})`;
+          if (m.formatKey === 'hanging_bottle') {
+            deductions = await deductIngredientsForBlend({
+              ingredients: [{ key: m.recipe.scentKey, name: m.recipe.oilName, ml: m.format.oilMl }],
+              fixativeDrops: m.format.fixativeDrops,
+              ethanolMl: 0,
+              dpgMl: m.format.dpgMl,
+              bottleSize: 'car_diffuser_bottle',
+              bottleCount: 1,
+              isCarFreshener: true
+            });
+          } else {
+            const unitItem = (await getAllInventory()).find(i => i.category === 'car_freshener');
+            if (unitItem) {
+              await adjustStock(unitItem.id, -1);
+              deductions.push({ id: unitItem.id, name: unitItem.name, qty: 1, unit: unitItem.unit });
+            }
+          }
+        } else {
+          category = `perfume_${m.size}ml`;
+          description = `${m.recipe.name} (${m.size}ml)`;
+          deductions = await deductIngredientsForBlend({
+            ingredients: m.ingredients,
+            fixativeDrops: m.fixativeDrops,
+            ethanolMl: m.ethanolMl,
+            bottleSize: m.size,
+            bottleCount: 1
+          });
+        }
 
         // 2. Record sale into transactions ledger
         await addTransaction({
           type: 'income',
-          category: `perfume_${m.size}ml`,
-          description: `${m.recipe.name} (${m.size}ml)`,
+          category,
+          description,
           quantity: 1,
           amount: m.sellingPrice,
           paymentMethod,
@@ -503,7 +585,7 @@ function initForms() {
 
         closeModal('fulfillModal');
         fulfillForm.reset();
-        showToast(`Order blended & stock deducted! +${formatTZS(m.sellingPrice)}`, 'success');
+        showToast(`${m.isCarFreshener ? '🚗 Car freshener' : 'Perfume'} compounded & stock deducted! +${formatTZS(m.sellingPrice)}`, 'success');
         await loadAllData();
         switchTab('tab-dashboard');
       } catch (err) {
@@ -754,6 +836,98 @@ function initForms() {
       }
     });
   }
+
+  // 9. Gift / Complimentary Handout Form
+  const giftForm = document.getElementById('giftForm');
+  if (giftForm) {
+    giftForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const productTypeSel = document.getElementById('giftProductTypeSelect');
+      const opt = productTypeSel.options[productTypeSel.selectedIndex];
+      const productTypeKey = productTypeSel.value;
+      const productTypeName = opt ? opt.text.split('(')[0].trim() : productTypeKey;
+
+      const description = document.getElementById('giftDescription').value.trim();
+      const quantity = parseInt(document.getElementById('giftQuantity').value, 10) || 1;
+      const purpose = document.getElementById('giftPurpose').value;
+      const recipientName = document.getElementById('giftRecipientName').value.trim();
+      const recipientContact = document.getElementById('giftRecipientContact').value.trim();
+      const productionCost = parseFloat(document.getElementById('giftProductionCost').value) || 0;
+      const retailPrice = parseFloat(document.getElementById('giftRetailValue').value) || 0;
+      const date = document.getElementById('giftDate').value || localDateStr();
+      const deductStock = document.getElementById('giftDeductStock')?.checked ?? true;
+      const notes = document.getElementById('giftNotes').value.trim();
+
+      try {
+        let deductions = [];
+        if (deductStock) {
+          if (productTypeKey === 'car_hanging') {
+            deductions = await deductIngredientsForBlend({
+              ingredients: [{ key: 'strawberry', name: description || 'Fragrance Oil', ml: 2.5 }],
+              fixativeDrops: 4,
+              ethanolMl: 0,
+              dpgMl: 5.5,
+              bottleSize: 'car_diffuser_bottle',
+              bottleCount: quantity,
+              isCarFreshener: true
+            });
+          } else if (productTypeKey === 'car_gel') {
+            const unitItem = (await getAllInventory()).find(i => i.category === 'car_freshener');
+            if (unitItem) {
+              await adjustStock(unitItem.id, -quantity);
+              deductions.push({ id: unitItem.id, name: unitItem.name, qty: quantity, unit: unitItem.unit });
+            }
+          } else if (productTypeKey === 'perfume_6ml') {
+            deductions = await deductIngredientsForBlend({
+              ingredients: [{ key: 'oil', name: description || 'Perfume Oil', ml: 5.0 }],
+              fixativeDrops: 2,
+              ethanolMl: 1.0,
+              bottleSize: 6,
+              bottleCount: quantity
+            });
+          } else if (productTypeKey === 'perfume_10ml') {
+            deductions = await deductIngredientsForBlend({
+              ingredients: [{ key: 'oil', name: description || 'Perfume Oil', ml: 6.0 }],
+              fixativeDrops: 2,
+              ethanolMl: 4.0,
+              bottleSize: 10,
+              bottleCount: quantity
+            });
+          } else if (productTypeKey === 'perfume_30ml') {
+            deductions = await deductIngredientsForBlend({
+              ingredients: [{ key: 'oil', name: description || 'Perfume Oil', ml: 18.0 }],
+              fixativeDrops: 4,
+              ethanolMl: 12.0,
+              bottleSize: 30,
+              bottleCount: quantity
+            });
+          }
+        }
+
+        await addGift({
+          productType: productTypeName,
+          productTypeKey,
+          description,
+          quantity,
+          purpose,
+          recipientName,
+          recipientContact,
+          productionCost,
+          retailPrice,
+          date,
+          deductions,
+          notes
+        });
+
+        closeModal('giftModal');
+        giftForm.reset();
+        showToast(`🎁 Gift logged for ${recipientName} (${quantity} unit${quantity > 1 ? 's' : ''})!`, 'success');
+        await loadAllData();
+      } catch (err) {
+        showToast('Error recording gift: ' + err.message, 'error');
+      }
+    });
+  }
 }
 
 // ==========================================
@@ -955,6 +1129,49 @@ async function renderDashboard() {
   setText('plPerfumeMeta', 'Perfumes, rollers, sets & dropship');
   setText('plCarAmount', formatTZS(carSales));
   setText('plCarMeta', `${summary.carFreshenerUnits || 0} unit${(summary.carFreshenerUnits || 0) === 1 ? '' : 's'} sold • ${summary.carFreshenerCount || 0} sale${(summary.carFreshenerCount || 0) === 1 ? '' : 's'}`);
+
+  // Gifts & Sampling Compensation Summary
+  const giftsSummary = await getGiftsSummary(state.currentPeriod);
+  const totalSalesVal = summary.totalSales || 0;
+  const giftCost = giftsSummary.totalProductionCost || 0;
+  const giftRetail = giftsSummary.totalRetailValue || 0;
+  const giftUnits = giftsSummary.totalUnits || 0;
+  const giftCostRatio = totalSalesVal > 0 ? ((giftCost / totalSalesVal) * 100) : 0;
+
+  setText('dashGiftUnits', `${giftUnits} unit${giftUnits === 1 ? '' : 's'}`);
+  setText('dashGiftCostMeta', `Cost: ${formatTZS(giftCost)}`);
+  setText('dashGiftRetailMeta', `Retail: ${formatTZS(giftRetail)}`);
+  setText('dashGiftRatio', totalSalesVal > 0 ? `${giftCostRatio.toFixed(1)}%` : (giftUnits > 0 ? 'Sampling' : '0.0%'));
+
+  const adviceBadge = document.getElementById('dashGiftAdviceBadge');
+  if (adviceBadge) {
+    if (giftUnits === 0) {
+      adviceBadge.textContent = 'No Gifts Given';
+      adviceBadge.style.color = 'var(--text-muted)';
+      adviceBadge.style.background = 'rgba(255, 255, 255, 0.05)';
+      adviceBadge.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+    } else if (totalSalesVal === 0) {
+      adviceBadge.textContent = 'Sampling Phase';
+      adviceBadge.style.color = 'var(--amber)';
+      adviceBadge.style.background = 'rgba(245, 158, 11, 0.15)';
+      adviceBadge.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+    } else if (giftCostRatio <= 10) {
+      adviceBadge.textContent = `🟢 Self-Compensating (${giftCostRatio.toFixed(1)}%)`;
+      adviceBadge.style.color = 'var(--emerald)';
+      adviceBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+      adviceBadge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+    } else if (giftCostRatio <= 20) {
+      adviceBadge.textContent = `🟡 Moderate (${giftCostRatio.toFixed(1)}%)`;
+      adviceBadge.style.color = 'var(--amber)';
+      adviceBadge.style.background = 'rgba(245, 158, 11, 0.15)';
+      adviceBadge.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+    } else {
+      adviceBadge.textContent = `🔴 High Ratio (${giftCostRatio.toFixed(1)}%)`;
+      adviceBadge.style.color = 'var(--rose)';
+      adviceBadge.style.background = 'rgba(244, 63, 94, 0.15)';
+      adviceBadge.style.borderColor = 'rgba(244, 63, 94, 0.3)';
+    }
+  }
 
   // Low stock banner
   const lowStock = state.inventory.filter(i => (i.quantity || 0) <= (i.minThreshold || 0));
@@ -1213,7 +1430,27 @@ function renderInventoryTab() {
 function initSOPLab() {
   const recipeSelect = document.getElementById('sopRecipeSelect');
   const sizeSelect = document.getElementById('sopSizeSelect');
+  const carRecipeSelect = document.getElementById('sopCarRecipeSelect');
+  const carFormatSelect = document.getElementById('sopCarFormatSelect');
+  const perfumeBtn = document.getElementById('labModePerfumeBtn');
+  const carBtn = document.getElementById('labModeCarBtn');
 
+  // Mode Switcher
+  perfumeBtn?.addEventListener('click', () => {
+    state.activeLabMode = 'perfume';
+    perfumeBtn.classList.add('active');
+    carBtn?.classList.remove('active');
+    renderSOPLab();
+  });
+
+  carBtn?.addEventListener('click', () => {
+    state.activeLabMode = 'car';
+    carBtn.classList.add('active');
+    perfumeBtn?.classList.remove('active');
+    renderSOPLab();
+  });
+
+  // Populate Perfume Recipes
   if (recipeSelect) {
     const flagshipScents = RECIPES_CATALOG.filter(r => r.group === 'Flagship Scents');
     const signatureBlends = RECIPES_CATALOG.filter(r => r.group === 'Signature Blends');
@@ -1256,115 +1493,362 @@ function initSOPLab() {
       renderSOPLab();
     });
   }
+
+  // Populate Car Air Freshener Recipes (SOP v1.2)
+  if (carRecipeSelect) {
+    carRecipeSelect.innerHTML = CAR_AIR_FRESHENER_RECIPES.map(r =>
+      `<option value="${r.id}">${r.name} [${r.status}]</option>`
+    ).join('');
+
+    carRecipeSelect.addEventListener('change', () => {
+      state.selectedCarRecipeId = carRecipeSelect.value;
+      renderSOPLab();
+    });
+  }
+
+  if (carFormatSelect) {
+    carFormatSelect.addEventListener('change', () => {
+      state.selectedCarFormat = carFormatSelect.value;
+      renderSOPLab();
+    });
+  }
 }
 
 function renderSOPLab() {
-  const m = getSOPMeasurements(state.selectedRecipeId, state.selectedBottleSize);
-  state.activeSOPMeasurements = m;
+  const isCar = state.activeLabMode === 'car';
+  const perfumeControls = document.getElementById('sopPerfumeControls');
+  const carControls = document.getElementById('sopCarControls');
+  const perfumeBtn = document.getElementById('labModePerfumeBtn');
+  const carBtn = document.getElementById('labModeCarBtn');
+  const mainHeading = document.getElementById('labMainHeading');
+  const subHeading = document.getElementById('labSubHeading');
+  const fulfillBtn = document.getElementById('openFulfillOrderBtn');
 
-  // Header badges
-  document.getElementById('sopCardTitle').textContent = m.recipe.name;
-  document.getElementById('sopCardCategory').textContent = `${m.recipe.category} • ${m.recipe.description}`;
-  document.getElementById('sopPackageBadge').textContent = m.size === 6 ? '6ml Roller' : `${m.size}ml Spray`;
-  document.getElementById('sopPriceBadge').textContent = formatTZS(m.sellingPrice);
-  document.getElementById('sopSyringeSpec').textContent = m.syringeSpec;
+  if (isCar) {
+    if (perfumeControls) perfumeControls.style.display = 'none';
+    if (carControls) carControls.style.display = 'grid';
+    if (perfumeBtn) perfumeBtn.classList.remove('active');
+    if (carBtn) carBtn.classList.add('active');
+    if (mainHeading) mainHeading.textContent = 'Car Air Freshener Compounding SOP (v1.2)';
+    if (subHeading) subHeading.textContent = 'Authoritative vehicle formulation: DPG carrier only (NO ethanol, NO water in hanging bottles) or 120g Agar gel tin.';
+    if (fulfillBtn) fulfillBtn.textContent = '✓ Make Car Freshener & Deduct Stock';
 
-  const restBadgeEl = document.getElementById('sopRestBadge');
-  if (restBadgeEl) {
-    restBadgeEl.textContent = `⏳ Rest: ${m.restTime}`;
-  }
+    const m = getCarAirFreshenerMeasurements(state.selectedCarRecipeId, state.selectedCarFormat);
+    state.activeSOPMeasurements = m;
 
-  // Render Measurements Grid based strictly on 60:40 formula (or 83:17 for 6ml)
-  const measGrid = document.getElementById('sopMeasurementsGrid');
-  if (measGrid) {
-    let rows = '';
-    m.ingredients.forEach((ing, idx) => {
-      rows += `
-        <div class="meas-card">
-          <span class="meas-label">${idx + 1}. ${ing.name} (${ing.percentage}%)</span>
-          <span class="meas-value text-amber">${ing.ml} ml</span>
-        </div>
-      `;
-    });
+    document.getElementById('sopCardTitle').textContent = m.recipe.name;
+    document.getElementById('sopCardCategory').textContent = `${m.category} • Rating: ${m.recipe.rating} — ${m.recipe.description}`;
+    document.getElementById('sopPackageBadge').textContent = m.formatKey === 'hanging_bottle' ? '8ml Hanging Glass' : '120g Gel Tin';
+    document.getElementById('sopPriceBadge').textContent = `${formatTZS(m.sellingPrice)} (Retail)`;
+    document.getElementById('sopSyringeSpec').textContent = m.syringeSpec;
 
-    const carrierLabel = m.size === 6 ? 'Ethanol (17% Carrier)' : 'Perfumery Ethanol (40% Carrier)';
-    rows += `
-      <div class="meas-card">
-        <span class="meas-label">${carrierLabel}</span>
-        <span class="meas-value text-emerald">${m.ethanolMl} ml</span>
-      </div>
-      <div class="meas-card">
-        <span class="meas-label">Fixative (Long-Lasting Anchor)</span>
-        <span class="meas-value text-cyan">${m.fixativeDrops} drops</span>
-      </div>
-    `;
-    measGrid.innerHTML = rows;
-  }
+    const restBadgeEl = document.getElementById('sopRestBadge');
+    if (restBadgeEl) restBadgeEl.textContent = `⏳ Rest: ${m.restTime}`;
 
-  // Render authoritative step-by-step SOP compounding list from NolMart SOP v3.1
-  const stepsList = document.getElementById('sopStepsList');
-  if (stepsList) {
-    let stepCount = 1;
-    let steps = `
-      <div class="sop-step-item">
-        <div class="sop-step-num">${stepCount++}</div>
-        <div><strong>Clean Work Area & Bottle Inspection:</strong> Work on a dry, sanitized flat surface. Inspect ${m.packagingName} for micro-cracks or dust. Verify syringe and needle are completely dry.</div>
-      </div>
-      <div class="sop-step-item">
-        <div class="sop-step-num">${stepCount++}</div>
-        <div><strong>Syringe Allocation:</strong> Use dedicated syringes for pure oils and a separate clean syringe for ethanol to prevent cross-contamination.</div>
-      </div>
-    `;
-
-    if (m.ingredients.length === 1) {
-      steps += `
-        <div class="sop-step-item">
-          <div class="sop-step-num">${stepCount++}</div>
-          <div><strong>Draw Pure Essential Oil (${m.size === 6 ? '83%' : '60%'}):</strong> Draw exactly <strong>${m.ingredients[0].ml} ml</strong> of ${m.ingredients[0].name} using the calibrated oil syringe and inject into the bottle.</div>
-        </div>
-      `;
-    } else {
-      m.ingredients.forEach(ing => {
-        steps += `
-          <div class="sop-step-item">
-            <div class="sop-step-num">${stepCount++}</div>
-            <div><strong>Draw ${ing.name} (${ing.percentage}% of oil volume):</strong> Draw exactly <strong>${ing.ml} ml</strong> and inject into the mixing bottle.</div>
+    // Render Measurements Grid
+    const measGrid = document.getElementById('sopMeasurementsGrid');
+    if (measGrid) {
+      let rows = '';
+      m.ingredients.forEach((ing, idx) => {
+        rows += `
+          <div class="meas-card">
+            <span class="meas-label">${idx + 1}. ${ing.name} (${ing.percentage})</span>
+            <span class="meas-value text-amber">${ing.amount}</span>
+            <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 2px;">${ing.role}</div>
           </div>
         `;
       });
+      measGrid.innerHTML = rows;
+    }
+
+    // Render Step-by-Step SOP compounding guide from authoritative SOP v1.2
+    const stepsList = document.getElementById('sopStepsList');
+    if (stepsList) {
+      stepsList.innerHTML = m.steps.map((st, idx) => `
+        <div class="sop-step-item">
+          <div class="sop-step-num">${idx + 1}</div>
+          <div>${st}</div>
+        </div>
+      `).join('');
+    }
+  } else {
+    // Perfume Mode
+    if (perfumeControls) perfumeControls.style.display = 'grid';
+    if (carControls) carControls.style.display = 'none';
+    if (perfumeBtn) perfumeBtn.classList.add('active');
+    if (carBtn) carBtn.classList.remove('active');
+    if (mainHeading) mainHeading.textContent = 'Perfume Compounding SOP (Made-to-Order)';
+    if (subHeading) subHeading.textContent = "Select the client's requested scent blend and package format to see exact syringe measurements, formulation proportions, and preparation steps.";
+    if (fulfillBtn) fulfillBtn.textContent = '✓ Make for Client & Deduct Stock';
+
+    const m = getSOPMeasurements(state.selectedRecipeId, state.selectedBottleSize);
+    state.activeSOPMeasurements = m;
+
+    document.getElementById('sopCardTitle').textContent = m.recipe.name;
+    document.getElementById('sopCardCategory').textContent = `${m.recipe.category} • ${m.recipe.description}`;
+    document.getElementById('sopPackageBadge').textContent = m.size === 6 ? '6ml Roller' : `${m.size}ml Spray`;
+    document.getElementById('sopPriceBadge').textContent = formatTZS(m.sellingPrice);
+    document.getElementById('sopSyringeSpec').textContent = m.syringeSpec;
+
+    const restBadgeEl = document.getElementById('sopRestBadge');
+    if (restBadgeEl) restBadgeEl.textContent = `⏳ Rest: ${m.restTime}`;
+
+    const measGrid = document.getElementById('sopMeasurementsGrid');
+    if (measGrid) {
+      let rows = '';
+      m.ingredients.forEach((ing, idx) => {
+        rows += `
+          <div class="meas-card">
+            <span class="meas-label">${idx + 1}. ${ing.name} (${ing.percentage}%)</span>
+            <span class="meas-value text-amber">${ing.ml} ml</span>
+          </div>
+        `;
+      });
+
+      const carrierLabel = m.size === 6 ? 'Ethanol (17% Carrier)' : 'Perfumery Ethanol (40% Carrier)';
+      rows += `
+        <div class="meas-card">
+          <span class="meas-label">${carrierLabel}</span>
+          <span class="meas-value text-emerald">${m.ethanolMl} ml</span>
+        </div>
+        <div class="meas-card">
+          <span class="meas-label">Fixative (Long-Lasting Anchor)</span>
+          <span class="meas-value text-cyan">${m.fixativeDrops} drops</span>
+        </div>
+      `;
+      measGrid.innerHTML = rows;
+    }
+
+    const stepsList = document.getElementById('sopStepsList');
+    if (stepsList) {
+      let stepCount = 1;
+      let steps = `
+        <div class="sop-step-item">
+          <div class="sop-step-num">${stepCount++}</div>
+          <div><strong>Clean Work Area & Bottle Inspection:</strong> Work on a dry, sanitized flat surface. Inspect ${m.packagingName} for micro-cracks or dust. Verify syringe and needle are completely dry.</div>
+        </div>
+        <div class="sop-step-item">
+          <div class="sop-step-num">${stepCount++}</div>
+          <div><strong>Syringe Allocation:</strong> Use dedicated syringes for pure oils and a separate clean syringe for ethanol to prevent cross-contamination.</div>
+        </div>
+      `;
+
+      if (m.ingredients.length === 1) {
+        steps += `
+          <div class="sop-step-item">
+            <div class="sop-step-num">${stepCount++}</div>
+            <div><strong>Draw Pure Essential Oil (${m.size === 6 ? '83%' : '60%'}):</strong> Draw exactly <strong>${m.ingredients[0].ml} ml</strong> of ${m.ingredients[0].name} using the calibrated oil syringe and inject into the bottle.</div>
+          </div>
+        `;
+      } else {
+        m.ingredients.forEach(ing => {
+          steps += `
+            <div class="sop-step-item">
+              <div class="sop-step-num">${stepCount++}</div>
+              <div><strong>Draw ${ing.name} (${ing.percentage}% of oil volume):</strong> Draw exactly <strong>${ing.ml} ml</strong> and inject into the mixing bottle.</div>
+            </div>
+          `;
+        });
+        steps += `
+          <div class="sop-step-item">
+            <div class="sop-step-num">${stepCount++}</div>
+            <div><strong>Pre-Blend Oils:</strong> Swirl the combined pure oils gently for 1–2 minutes to fully integrate fragrance molecules before carrier addition.</div>
+          </div>
+        `;
+      }
+
       steps += `
         <div class="sop-step-item">
           <div class="sop-step-num">${stepCount++}</div>
-          <div><strong>Pre-Blend Oils:</strong> Swirl the combined pure oils gently for 1–2 minutes to fully integrate fragrance molecules before carrier addition.</div>
+          <div><strong>Add Perfumery Ethanol (${m.size === 6 ? '17%' : '40%'}):</strong> Using the dedicated ethanol syringe, measure and slowly inject exactly <strong>${m.ethanolMl} ml</strong> of Ethanol into the bottle while swirling gently.</div>
+        </div>
+        <div class="sop-step-item">
+          <div class="sop-step-num">${stepCount++}</div>
+          <div><strong>Maceration & Marriage Period (${m.restTime}):</strong> Allow the solution to rest undisturbed for <strong>${m.restTime}</strong> so the carrier and aromatic oils marry properly.</div>
+        </div>
+        <div class="sop-step-item">
+          <div class="sop-step-num">${stepCount++}</div>
+          <div><strong>Add Fixative Drops LAST:</strong> Using the precision dropper, add <strong>exactly ${m.fixativeDrops} drops</strong> of Long-Lasting Fixative directly into the bottle. (Never add fixative before oils and ethanol are combined).</div>
+        </div>
+        <div class="sop-step-item">
+          <div class="sop-step-num">${stepCount++}</div>
+          <div><strong>Cap & Homogenize (30 seconds):</strong> Cap tightly and shake gently for 30 seconds. Conduct an inner-wrist skin-patch test before releasing to the client.</div>
+        </div>
+        <div class="sop-step-item">
+          <div class="sop-step-num">${stepCount++}</div>
+          <div><strong>Label & Deliver:</strong> Affix waterproof NolMart label (${m.recipe.name}, ${m.size}ml) and package into a Mifuko A6 bag for the client.</div>
         </div>
       `;
-    }
 
-    steps += `
-      <div class="sop-step-item">
-        <div class="sop-step-num">${stepCount++}</div>
-        <div><strong>Add Perfumery Ethanol (${m.size === 6 ? '17%' : '40%'}):</strong> Using the dedicated ethanol syringe, measure and slowly inject exactly <strong>${m.ethanolMl} ml</strong> of Ethanol into the bottle while swirling gently.</div>
-      </div>
-      <div class="sop-step-item">
-        <div class="sop-step-num">${stepCount++}</div>
-        <div><strong>Maceration & Marriage Period (${m.restTime}):</strong> Allow the solution to rest undisturbed for <strong>${m.restTime}</strong> so the carrier and aromatic oils marry properly.</div>
-      </div>
-      <div class="sop-step-item">
-        <div class="sop-step-num">${stepCount++}</div>
-        <div><strong>Add Fixative Drops LAST:</strong> Using the precision dropper, add <strong>exactly ${m.fixativeDrops} drops</strong> of Long-Lasting Fixative directly into the bottle. (Never add fixative before oils and ethanol are combined).</div>
-      </div>
-      <div class="sop-step-item">
-        <div class="sop-step-num">${stepCount++}</div>
-        <div><strong>Cap & Homogenize (30 seconds):</strong> Cap tightly and shake gently for 30 seconds. Conduct an inner-wrist skin-patch test before releasing to the client.</div>
-      </div>
-      <div class="sop-step-item">
-        <div class="sop-step-num">${stepCount++}</div>
-        <div><strong>Label & Deliver:</strong> Affix waterproof NolMart label (${m.recipe.name}, ${m.size}ml) and package into a Mifuko A6 bag for the client.</div>
+      stepsList.innerHTML = steps;
+    }
+  }
+}
+
+// ==========================================
+// GIFTS & COMPLIMENTARY SAMPLING TAB
+// ==========================================
+async function renderGiftsTab() {
+  const container = document.getElementById('fullGiftList');
+  if (!container) return;
+
+  const currentGiftPeriod = state.giftPeriod || 'all';
+  const giftsSummary = await getGiftsSummary(currentGiftPeriod);
+  const finSummary = await getFinancialSummary(currentGiftPeriod);
+
+  const totalSales = finSummary.totalSales || 0;
+  const totalCost = giftsSummary.totalProductionCost || 0;
+  const totalRetail = giftsSummary.totalRetailValue || 0;
+  const totalUnits = giftsSummary.totalUnits || 0;
+  const costRatio = totalSales > 0 ? ((totalCost / totalSales) * 100) : 0;
+
+  // 1. Strategic Advisory & Decision Box
+  const strategyBox = document.getElementById('giftStrategyBox');
+  const badgeEl = document.getElementById('giftStrategyBadge');
+  const titleEl = document.getElementById('giftStrategyTitle');
+  const textEl = document.getElementById('giftStrategyText');
+  const actionEl = document.getElementById('giftStrategyAction');
+  const pctTextEl = document.getElementById('giftCostPercentText');
+
+  if (pctTextEl) pctTextEl.textContent = `${costRatio.toFixed(1)}%`;
+
+  if (totalUnits === 0) {
+    if (strategyBox) strategyBox.style.borderLeftColor = 'var(--text-muted)';
+    if (badgeEl) {
+      badgeEl.textContent = 'No Gifts Recorded';
+      badgeEl.style.color = 'var(--text-muted)';
+      badgeEl.style.background = 'rgba(255,255,255,0.06)';
+      badgeEl.style.borderColor = 'rgba(255,255,255,0.1)';
+    }
+    if (titleEl) titleEl.textContent = 'Ready to Track Complimentary Samples & Gifts';
+    if (textEl) textEl.textContent = 'When you give car fresheners or perfume samples with no pay, record them here to evaluate whether other sales compensate and whether to keep doing it or adjust.';
+    if (actionEl) actionEl.innerHTML = '💡 <strong>Strategy:</strong> Tap <strong>"+ Give Gift"</strong> to record your first complimentary bottle or marketing sample.';
+  } else if (totalSales === 0) {
+    if (strategyBox) strategyBox.style.borderLeftColor = 'var(--amber)';
+    if (badgeEl) {
+      badgeEl.textContent = 'Initial Sampling Phase';
+      badgeEl.style.color = 'var(--amber)';
+      badgeEl.style.background = 'rgba(245, 158, 11, 0.15)';
+      badgeEl.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+    }
+    if (titleEl) titleEl.textContent = 'Seed Samples Distributed (Awaiting Initial Sales)';
+    if (textEl) textEl.textContent = `You have given ${totalUnits} complimentary units costing ${formatTZS(totalCost)}. No sales have occurred in this period yet to gauge compensation.`;
+    if (actionEl) actionEl.innerHTML = '💡 <strong>Strategic Advice:</strong> Follow up with recipients within 48–72 hours to ask about scent longevity and convert them into paid bottle buyers.';
+  } else if (costRatio <= 10) {
+    if (strategyBox) strategyBox.style.borderLeftColor = 'var(--emerald)';
+    if (badgeEl) {
+      badgeEl.textContent = `🟢 Self-Compensating (${costRatio.toFixed(1)}%)`;
+      badgeEl.style.color = 'var(--emerald)';
+      badgeEl.style.background = 'rgba(16, 185, 129, 0.15)';
+      badgeEl.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+    }
+    if (titleEl) titleEl.textContent = 'Sales Fully Absorb Gift Costs (Profitable & Sustainable)';
+    if (textEl) textEl.innerHTML = `Your gift production costs (${formatTZS(totalCost)}) absorb only <strong style="color: var(--emerald);">${costRatio.toFixed(1)}%</strong> of gross sales revenue (${formatTZS(totalSales)}). This is safely within the luxury perfume customer acquisition benchmark (3% to 10%).`;
+    if (actionEl) actionEl.innerHTML = '🟢 <strong>Keep Doing This:</strong> Your gifting is working profitably! Complimentary car fresheners and testers are driving word-of-mouth and customer retention without stressing your cashflow.';
+  } else if (costRatio <= 20) {
+    if (strategyBox) strategyBox.style.borderLeftColor = 'var(--amber)';
+    if (badgeEl) {
+      badgeEl.textContent = `🟡 Moderate Exposure (${costRatio.toFixed(1)}%)`;
+      badgeEl.style.color = 'var(--amber)';
+      badgeEl.style.background = 'rgba(245, 158, 11, 0.15)';
+      badgeEl.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+    }
+    if (titleEl) titleEl.textContent = 'Gifts Absorbing Moderate Revenue — Monitor Conversion';
+    if (textEl) textEl.innerHTML = `Gift production costs (${formatTZS(totalCost)}) represent <strong style="color: var(--amber);">${costRatio.toFixed(1)}%</strong> of gross revenue. While acceptable during an aggressive launch phase, keep a close watch on actual conversion.`;
+    if (actionEl) actionEl.innerHTML = '🟡 <strong>Strategic Advice:</strong> Only give gifts to high-leverage prospects (e.g. busy boda riders who carry hundreds of passengers, or active content creators). Request their direct feedback.';
+  } else {
+    if (strategyBox) strategyBox.style.borderLeftColor = 'var(--rose)';
+    if (badgeEl) {
+      badgeEl.textContent = `🔴 High Exposure (${costRatio.toFixed(1)}%)`;
+      badgeEl.style.color = 'var(--rose)';
+      badgeEl.style.background = 'rgba(244, 63, 94, 0.15)';
+      badgeEl.style.borderColor = 'rgba(244, 63, 94, 0.3)';
+    }
+    if (titleEl) titleEl.textContent = 'Gift Costs Exceed Safe Benchmark — Policy Adjustment Advised';
+    if (textEl) textEl.innerHTML = `Gifts have consumed <strong style="color: var(--rose);">${costRatio.toFixed(1)}%</strong> of your gross revenue (${formatTZS(totalCost)} spent vs ${formatTZS(totalSales)} earned). Free handouts are eroding your operating margin.`;
+    if (actionEl) actionEl.innerHTML = '🔴 <strong>Recommended Adjustment:</strong> (1) Switch free gifts to smaller formats (e.g. 8ml hanging diffuser or 6ml pocket roller instead of 30ml bottles); (2) Tie gifts to a minimum purchase of 35,000 TZS (e.g. "Free car diffuser on orders over 35k") rather than unconditional freebies.';
+  }
+
+  // 2. Update KPI Tiles
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setText('kpiGiftUnits', totalUnits);
+  setText('kpiGiftCost', formatTZS(totalCost));
+  setText('kpiGiftRetail', formatTZS(totalRetail));
+  setText('kpiGiftRatio', totalSales > 0 ? `${costRatio.toFixed(1)}%` : (totalUnits > 0 ? 'Sampling' : '0.0%'));
+
+  // 3. Filter Gifts List
+  const searchTerm = (document.getElementById('giftSearchInput')?.value || '').toLowerCase();
+  const purposeFilter = document.getElementById('giftPurposeFilter')?.value || 'all';
+
+  const filtered = giftsSummary.items.filter(g => {
+    if (purposeFilter !== 'all' && g.purpose !== purposeFilter) return false;
+    if (searchTerm) {
+      const matchRecipient = (g.recipientName || '').toLowerCase().includes(searchTerm);
+      const matchContact = (g.recipientContact || '').toLowerCase().includes(searchTerm);
+      const matchDesc = (g.description || '').toLowerCase().includes(searchTerm);
+      const matchNotes = (g.notes || '').toLowerCase().includes(searchTerm);
+      if (!matchRecipient && !matchContact && !matchDesc && !matchNotes) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="padding: 24px; text-align: center; color: var(--text-muted); background: var(--bg-surface); border-radius: 8px;">
+        <div style="font-size: 1.6rem; margin-bottom: 6px;">🎁</div>
+        <p style="font-size: 0.85rem; font-weight: 600;">No gift entries found for this filter.</p>
+        <p style="font-size: 0.75rem;">Record a new complimentary sample using "+ Give Gift" above.</p>
       </div>
     `;
-
-    stepsList.innerHTML = steps;
+    return;
   }
+
+  container.innerHTML = filtered.map(g => {
+    const qty = Number(g.quantity) || 1;
+    const cost = (Number(g.productionCost) || 0) * qty;
+    const retail = (Number(g.retailPrice) || 0) * qty;
+    const hasDeductions = Array.isArray(g.deductions) && g.deductions.length > 0;
+
+    return `
+      <div class="tx-item" style="border-left: 3px solid #ec4899;">
+        <div class="tx-info">
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <span class="tx-desc" style="font-weight: 700;">${escapeHTML(g.recipientName)}</span>
+            <span class="gift-purpose-badge">${escapeHTML(g.purpose || 'Gift')}</span>
+            ${hasDeductions ? '<span class="gift-deducted-pill">Stock Deducted</span>' : ''}
+          </div>
+          <div class="tx-date" style="margin-top: 3px;">
+            ${escapeHTML(g.date)} • <strong>${qty}x ${escapeHTML(g.description || g.productType)}</strong>
+            ${g.recipientContact ? ` • 📞 ${escapeHTML(g.recipientContact)}` : ''}
+          </div>
+          ${g.notes ? `<div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">💬 ${escapeHTML(g.notes)}</div>` : ''}
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+          <div style="font-size: 0.88rem; font-weight: 700; color: var(--rose);">
+            -${formatTZS(cost)} <span style="font-size: 0.68rem; color: var(--text-muted); font-weight: 400;">cost</span>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--emerald);">
+            ${formatTZS(retail)} retail val
+          </div>
+          <button class="btn-delete-gift" data-gift-id="${g.id}" style="background: none; border: none; color: var(--text-muted); font-size: 0.72rem; cursor: pointer; padding: 2px;" title="Delete and restore deducted inventory">
+            🗑️ Delete
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Attach delete listeners
+  document.querySelectorAll('.btn-delete-gift').forEach(btn => {
+    btn.onclick = async () => {
+      const id = parseInt(btn.dataset.giftId, 10);
+      if (confirm('Delete this gift entry? Any deducted stock items will be automatically restored to your inventory.')) {
+        await deleteGift(id);
+        showToast('Gift deleted & stock restored!', 'info');
+        await loadAllData();
+      }
+    };
+  });
 }
 
 // ==========================================
@@ -1402,6 +1886,8 @@ function initSettingsAndExports() {
   document.getElementById('exportAllTxCSV')?.addEventListener('click', exportTransactionsToCSV);
   document.getElementById('exportInvCSVBtn')?.addEventListener('click', exportInventoryToCSV);
   document.getElementById('exportAllInvCSV')?.addEventListener('click', exportInventoryToCSV);
+  document.getElementById('exportGiftsCSVBtn')?.addEventListener('click', exportGiftsToCSV);
+  document.getElementById('exportAllGiftsCSV')?.addEventListener('click', exportGiftsToCSV);
 
   document.getElementById('clearDataBtn')?.addEventListener('click', async () => {
     if (confirm('WARNING: Reset all records to clean baseline? Make sure you have downloaded a backup first!')) {
@@ -1430,6 +1916,18 @@ function initSettingsAndExports() {
     });
   });
 
+  document.querySelectorAll('.gift-filter-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.gift-filter-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.giftPeriod = btn.dataset.giftPeriod;
+      renderGiftsTab();
+    });
+  });
+
+  document.getElementById('giftSearchInput')?.addEventListener('input', renderGiftsTab);
+  document.getElementById('giftPurposeFilter')?.addEventListener('change', renderGiftsTab);
+
   document.getElementById('txSearchInput')?.addEventListener('input', renderTransactionsTab);
   document.getElementById('txTypeFilter')?.addEventListener('change', renderTransactionsTab);
 }
@@ -1439,12 +1937,14 @@ async function loadAllData() {
   await openDatabase();
   state.inventory = await getAllInventory();
   state.transactions = await getAllTransactions();
+  state.gifts = await getAllGifts();
   state.financialSummary = await getFinancialSummary(state.currentPeriod);
 
   if (state.currentTab === 'tab-dashboard') renderDashboard();
   else if (state.currentTab === 'tab-transactions') renderTransactionsTab();
   else if (state.currentTab === 'tab-inventory') renderInventoryTab();
   else if (state.currentTab === 'tab-calculator') renderSOPLab();
+  else if (state.currentTab === 'tab-gifts') renderGiftsTab();
 }
 
 // ==========================================

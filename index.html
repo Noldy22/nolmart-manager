@@ -78,6 +78,16 @@
           </svg>
           <span>Move Money</span>
         </button>
+        <button id="openGiftModalBtn" class="btn-quick btn-gift" title="Record unpaid product given as gift or sample">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="8" width="18" height="4" rx="1"></rect>
+            <path d="M12 8v13"></path>
+            <path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"></path>
+            <path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.5 4.5 0 0 1 12 7.5"></path>
+            <path d="M16.5 8a2.5 2.5 0 0 0 0-5A4.5 4.5 0 0 0 12 7.5"></path>
+          </svg>
+          <span>Give Gift</span>
+        </button>
       </div>
 
       <!-- Time Filter Selector -->
@@ -194,6 +204,29 @@
             <span class="pl-name">🚗 Car Air Fresheners</span>
             <span class="pl-amount" id="plCarAmount">0 TZS</span>
             <span class="pl-meta" id="plCarMeta">0 units sold</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gifts / Sampling Strategy Summary Card -->
+      <div class="product-lines-card" id="dashboardGiftsCard" style="border-left: 3px solid #ec4899; cursor: pointer;">
+        <div class="card-heading" style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="display: flex; align-items: center; gap: 6px;">
+            <span>🎁 Complimentary &amp; Gifts</span>
+            <span id="dashGiftAdviceBadge" class="brand-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--emerald); border-color: rgba(16, 185, 129, 0.3);">Self-Compensating</span>
+          </span>
+          <button id="viewGiftsTabBtn" class="btn-secondary" style="padding: 2px 8px; font-size: 0.72rem;">View Ledger</button>
+        </div>
+        <div class="product-lines-grid">
+          <div class="product-line-item">
+            <span class="pl-name">Given Units</span>
+            <span class="pl-amount text-rose" id="dashGiftUnits">0 units</span>
+            <span class="pl-meta" id="dashGiftCostMeta">Cost: 0 TZS</span>
+          </div>
+          <div class="product-line-item">
+            <span class="pl-name">Gift-to-Sales Ratio</span>
+            <span class="pl-amount" id="dashGiftRatio" style="color: #ec4899;">0.0%</span>
+            <span class="pl-meta" id="dashGiftRetailMeta">Retail Val: 0 TZS</span>
           </div>
         </div>
       </div>
@@ -326,14 +359,24 @@
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M10 2v7.31L4.36 17.6a2 2 0 0 0 1.64 2.4h12a2 2 0 0 0 1.64-2.4L14 9.31V2M8.5 2h7M14 9.3h-4M7.8 15h8.4"/>
           </svg>
-          <span>Perfume Blending SOP (Made-to-Order)</span>
+          <span id="labMainHeading">Interactive Compounding SOP Lab</span>
         </div>
-        <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 14px;">
-          Select the client's requested scent blend and package format to see exact syringe measurements, formulation proportions, and preparation steps.
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;" id="labSubHeading">
+          Select perfume blend or car air freshener formulation to view exact syringe measurements, formulation proportions, and preparation steps.
         </p>
 
-        <!-- Recipe & Package Selector -->
-        <div class="sop-selector-grid">
+        <!-- Lab Mode Switcher: Perfumes SOP vs Car Air Fresheners SOP -->
+        <div class="lab-mode-toggle" style="display: flex; gap: 8px; margin-bottom: 14px;">
+          <button type="button" id="labModePerfumeBtn" class="btn-lab-toggle active" style="flex: 1; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; border: 1px solid var(--emerald); background: rgba(16, 185, 129, 0.2); color: #fff; cursor: pointer;">
+            🌸 Perfumes (SOP v3.1)
+          </button>
+          <button type="button" id="labModeCarBtn" class="btn-lab-toggle" style="flex: 1; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-muted); cursor: pointer;">
+            🚗 Car Fresheners (SOP v1.2)
+          </button>
+        </div>
+
+        <!-- Mode 1: Perfume Controls -->
+        <div class="sop-selector-grid" id="sopPerfumeControls">
           <div class="form-group">
             <label class="form-label">Client Scent Blend</label>
             <select id="sopRecipeSelect" class="form-select">
@@ -347,6 +390,24 @@
               <option value="30">30ml Spray Bottle (60:40 Formula)</option>
               <option value="10">10ml Spray Bottle (60:40 Formula)</option>
               <option value="6">6ml Pocket Roller (83:17 Formula)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Mode 2: Car Air Freshener Controls (SOP v1.2) -->
+        <div class="sop-selector-grid" id="sopCarControls" style="display: none;">
+          <div class="form-group">
+            <label class="form-label">Tested Scent Profile (SOP v1.2)</label>
+            <select id="sopCarRecipeSelect" class="form-select">
+              <!-- Injected via JavaScript from CAR_AIR_FRESHENER_RECIPES -->
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Product Format &amp; Carrier</label>
+            <select id="sopCarFormatSelect" class="form-select">
+              <option value="hanging_bottle" selected>Hanging Mirror Bottle (8ml in 10ml Glass) — DPG Carrier</option>
+              <option value="gel_tin">Gel Air Freshener Tin (120g Sealed Tin) — Agar Base</option>
             </select>
           </div>
         </div>
@@ -395,7 +456,99 @@
     </section>
 
     <!-- ============================================== -->
-    <!-- TAB 5: SETTINGS & BACKUP -->
+    <!-- TAB 5: COMPLIMENTARY & GIFTS STRATEGY -->
+    <!-- ============================================== -->
+    <section id="tab-gifts" class="tab-view">
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">🎁 Complimentary &amp; Gifts Strategy</h2>
+            <p style="font-size: 0.75rem; color: var(--text-muted);">Track unpaid handouts, cost vs retail value &amp; compensation ROI</p>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button id="openGiftModalFromTabBtn" class="btn-primary" style="background: linear-gradient(135deg, #ec4899, #db2777); padding: 6px 12px; font-size: 0.8rem; font-weight: 700;">+ Give Gift</button>
+            <button id="exportGiftsCSVBtn" class="btn-secondary" title="Export Gifts to Excel">CSV</button>
+          </div>
+        </div>
+
+        <!-- Strategy Advisory & Compensation Card -->
+        <div id="giftStrategyBox" class="gift-strategy-card" style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; margin-bottom: 14px; border-left: 4px solid var(--emerald);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 0.76rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">Marketing &amp; Gifting Feasibility</span>
+            <span id="giftStrategyBadge" class="brand-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--emerald); border-color: rgba(16, 185, 129, 0.3);">Self-Compensating</span>
+          </div>
+          <div id="giftStrategyTitle" style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 4px;">Sales Revenue Fully Absorbs Gift Costs</div>
+          <p id="giftStrategyText" style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.45; margin-bottom: 10px;">
+            Your gift production costs represent <strong id="giftCostPercentText" style="color: var(--emerald);">0%</strong> of gross sales revenue. This is within the luxury perfume customer acquisition benchmark (3–10%).
+          </p>
+          <div id="giftStrategyAction" style="font-size: 0.76rem; color: var(--cyan); background: rgba(6, 182, 212, 0.08); padding: 8px 10px; border-radius: 6px; border: 1px solid rgba(6, 182, 212, 0.2);">
+            💡 <strong>Strategic Advice:</strong> Keep gifting thoughtfully to drive referrals, word-of-mouth, and repeat bottle orders.
+          </div>
+        </div>
+
+        <!-- KPI Cards Grid -->
+        <div class="stats-grid" style="margin-bottom: 14px;">
+          <div class="stat-card">
+            <div class="stat-label">
+              <span>Given Units</span>
+              <span style="color: #ec4899;">🎁</span>
+            </div>
+            <div class="stat-value" id="kpiGiftUnits" style="color: #ec4899;">0</div>
+            <div class="stat-meta"><span>Handed out without pay</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">
+              <span>Actual Cost (Loss)</span>
+              <span class="text-rose">💸</span>
+            </div>
+            <div class="stat-value text-rose" id="kpiGiftCost">0 TZS</div>
+            <div class="stat-meta"><span>Oils, DPG, bottles spent</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">
+              <span>Retail Value</span>
+              <span class="text-emerald">🏷️</span>
+            </div>
+            <div class="stat-value text-emerald" id="kpiGiftRetail">0 TZS</div>
+            <div class="stat-meta"><span>Market selling value</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">
+              <span>Cost-to-Sales Ratio</span>
+              <span class="text-amber">⚖️</span>
+            </div>
+            <div class="stat-value text-amber" id="kpiGiftRatio">0.0%</div>
+            <div class="stat-meta"><span>Benchmark: &le; 10%</span></div>
+          </div>
+        </div>
+
+        <!-- Filter & Search Controls -->
+        <div style="display: grid; grid-template-columns: 1fr 130px; gap: 8px; margin-bottom: 12px;">
+          <input type="text" id="giftSearchInput" class="form-input" placeholder="Search recipient, scent, note...">
+          <select id="giftPurposeFilter" class="form-select">
+            <option value="all">All Purposes</option>
+            <option value="Customer Appreciation">Customer Appreciation</option>
+            <option value="Sampling / Trial">Sampling / Trial</option>
+            <option value="Influencer / Promo">Influencer / Promo</option>
+            <option value="Friend / Family">Friend / Family</option>
+            <option value="Complaint Resolution">Complaint Resolution</option>
+          </select>
+        </div>
+
+        <!-- Time Filter for Gifts -->
+        <div class="filter-tabs" style="margin-bottom: 12px;">
+          <button class="filter-tab gift-filter-tab active" data-gift-period="all">All Time</button>
+          <button class="filter-tab gift-filter-tab" data-gift-period="this_month">This Month</button>
+          <button class="filter-tab gift-filter-tab" data-gift-period="last_30_days">Last 30 Days</button>
+        </div>
+
+        <!-- Full Gifts Feed -->
+        <div id="fullGiftList" class="tx-list"></div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- TAB 6: SETTINGS & BACKUP -->
     <!-- ============================================== -->
     <section id="tab-settings" class="tab-view">
       <div class="section-card">
@@ -432,6 +585,7 @@
         <div style="display: flex; gap: 8px;">
           <button id="exportAllTxCSV" class="btn-secondary" style="flex: 1;">Ledger CSV</button>
           <button id="exportAllInvCSV" class="btn-secondary" style="flex: 1;">Stock CSV</button>
+          <button id="exportAllGiftsCSV" class="btn-secondary" style="flex: 1;">Gifts CSV</button>
         </div>
 
         <h3 style="font-size: 0.95rem; font-weight: 700; margin: 20px 0 10px; color: var(--rose);">Danger Zone</h3>
@@ -998,6 +1152,119 @@
     </div>
   </div>
 
+  <!-- ============================================== -->
+  <!-- MODAL: GIVE GIFT / COMPLIMENTARY SAMPLE -->
+  <!-- ============================================== -->
+  <div id="giftModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: #ec4899;">🎁 Record Gift / Complimentary</h3>
+        <button class="close-btn" data-close-modal="giftModal">&times;</button>
+      </div>
+
+      <form id="giftForm">
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label class="form-label">Product / Gift Format</label>
+          <select id="giftProductTypeSelect" class="form-select" required>
+            <optgroup label="🚗 Car Air Fresheners (SOP v1.2)">
+              <option value="car_hanging" data-cost="2700" data-retail="10000" data-desc="Car Air Freshener - Strawberry (8ml Diffuser)">🚗 Hanging Car Diffuser 8ml (Cost: 2,700 | Retail: 10,000 TZS)</option>
+              <option value="car_gel" data-cost="7725" data-retail="15000" data-desc="Car Air Freshener - Gel Tin (120g)">🚗 Gel Air Freshener Tin 120g (Cost: 7,725 | Retail: 15,000 TZS)</option>
+            </optgroup>
+            <optgroup label="🌸 Perfumes (SOP v3.1)">
+              <option value="perfume_6ml" data-cost="1500" data-retail="7000" data-desc="6ml Pocket Roller">6ml Pocket Roller (Cost: 1,500 | Retail: 7,000 TZS)</option>
+              <option value="perfume_10ml" data-cost="3000" data-retail="15000" data-desc="10ml Perfume Spray">10ml Spray Bottle (Cost: 3,000 | Retail: 15,000 TZS)</option>
+              <option value="perfume_30ml" data-cost="8500" data-retail="35000" data-desc="30ml Perfume Spray">30ml Spray Bottle (Cost: 8,500 | Retail: 35,000 TZS)</option>
+            </optgroup>
+            <optgroup label="Other">
+              <option value="custom" data-cost="0" data-retail="0" data-desc="Custom Sample / Gift">Custom Product / Other</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label class="form-label">Scent Blend or Description</label>
+          <input type="text" id="giftDescription" class="form-input" list="giftScentSuggestions" placeholder="e.g. Strawberry, Vanilla 28, Crown Noir" required>
+          <datalist id="giftScentSuggestions">
+            <option value="Strawberry 🍓 (Car Freshener)">
+            <option value="Vanilla 28 🍨">
+            <option value="Marshmallow 🍬">
+            <option value="Coconut Passion 🥥">
+            <option value="Club de Nuit">
+            <option value="Sauvage Dior">
+            <option value="Crown Noir">
+            <option value="Baccarat Rouge 540">
+            <option value="Vanilla Caramel Warm">
+          </datalist>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+          <div class="form-group">
+            <label class="form-label">Quantity Given</label>
+            <input type="number" id="giftQuantity" class="form-input" value="1" min="1" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Gift Purpose</label>
+            <select id="giftPurpose" class="form-select">
+              <option value="Customer Appreciation">💖 Customer Appreciation</option>
+              <option value="Sampling / Trial">🧪 Sampling / Prospect Trial</option>
+              <option value="Influencer / Promo">📸 Influencer / Promo</option>
+              <option value="Friend / Family">🤝 Friend / Family</option>
+              <option value="Complaint Resolution">🛡️ Complaint Resolution</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+          <div class="form-group">
+            <label class="form-label">Recipient Name</label>
+            <input type="text" id="giftRecipientName" class="form-input" placeholder="e.g. Boda Ali, Sarah" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone / WhatsApp / Handle</label>
+            <input type="text" id="giftRecipientContact" class="form-input" placeholder="07XXXXXXXX or @handle">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+          <div class="form-group">
+            <label class="form-label">Unit Production Cost (TZS)</label>
+            <input type="number" id="giftProductionCost" class="form-input" value="2700" required>
+            <span style="font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; display: block;">Raw materials spend</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Unit Retail Value (TZS)</label>
+            <input type="number" id="giftRetailValue" class="form-input" value="10000" required>
+            <span style="font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; display: block;">What it sells for</span>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" id="giftDate" class="form-input" required>
+          </div>
+          <div class="form-group" style="display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 6px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer; color: var(--text-primary);">
+              <input type="checkbox" id="giftDeductStock" checked style="width: 16px; height: 16px; accent-color: #ec4899;">
+              <span>Deduct stock</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Notes (Optional)</label>
+          <input type="text" id="giftNotes" class="form-input" placeholder="e.g. Gave to boda driver for rearview mirror marketing">
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" class="btn-primary" style="background: linear-gradient(135deg, #ec4899, #db2777); font-weight: 700; color: #fff;">
+            Record Gift &amp; Deduct Stock
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Mobile Bottom Nav -->
   <nav class="bottom-nav">
     <button class="nav-item active" data-tab="tab-dashboard">
@@ -1023,6 +1290,12 @@
         <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
       </svg>
       <span>Lab</span>
+    </button>
+    <button class="nav-item" data-tab="tab-gifts">
+      <svg viewBox="0 0 24 24">
+        <path d="M20 6h-2.18c.11-.31.18-.65.18-1 0-1.66-1.34-3-3-3-1.05 0-1.96.54-2.5 1.35l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1h-2v-1c0-.55.45-1 1-1zm-6 0c.55 0 1 .45 1 1v1H8c0-.55.45-1 1-1zm11 15H4v-7h16v7zm0-9H4V8h16v2z"/>
+      </svg>
+      <span>Gifts</span>
     </button>
     <button class="nav-item" data-tab="tab-settings">
       <svg viewBox="0 0 24 24">

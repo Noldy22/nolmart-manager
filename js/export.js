@@ -1,5 +1,5 @@
 // js/export.js - Local Data Export, CSV Generation & Private JSON Backups
-import { getAllTransactions, getAllInventory, exportAllDataJSON, importAllDataJSON, localDateStr, setSetting } from './db.js';
+import { getAllTransactions, getAllInventory, getAllGifts, exportAllDataJSON, importAllDataJSON, localDateStr, setSetting } from './db.js';
 
 // Trigger download in browser
 function downloadFile(content, fileName, mimeType) {
@@ -114,3 +114,43 @@ export async function exportInventoryToCSV() {
   const dateStr = localDateStr();
   downloadFile(csvContent, `NolMart_Inventory_${dateStr}.csv`, 'text/csv;charset=utf-8;');
 }
+
+// 5. Export Gifts & Complimentary Samples to CSV (Excel-Ready)
+export async function exportGiftsToCSV() {
+  const gifts = await getAllGifts();
+  if (gifts.length === 0) {
+    alert('No gifts or complimentary products recorded yet to export.');
+    return;
+  }
+
+  const headers = ['ID', 'Date', 'Product Type', 'Scent / Description', 'Quantity', 'Production Cost (TZS)', 'Total Production Cost (TZS)', 'Retail Price (TZS)', 'Total Retail Value (TZS)', 'Recipient Name', 'Recipient Contact', 'Purpose', 'Stock Deducted', 'Notes'];
+
+  const rows = gifts.map(g => {
+    const qty = Number(g.quantity) || 1;
+    const cost = Number(g.productionCost) || 0;
+    const retail = Number(g.retailPrice) || 0;
+    const deducted = (g.deductions && g.deductions.length > 0) ? 'YES' : 'NO';
+
+    return [
+      g.id,
+      g.date,
+      `"${(g.productType || '').replace(/"/g, '""')}"`,
+      `"${(g.description || '').replace(/"/g, '""')}"`,
+      qty,
+      cost,
+      cost * qty,
+      retail,
+      retail * qty,
+      `"${(g.recipientName || '').replace(/"/g, '""')}"`,
+      `"${(g.recipientContact || '').replace(/"/g, '""')}"`,
+      `"${(g.purpose || '').replace(/"/g, '""')}"`,
+      deducted,
+      `"${(g.notes || '').replace(/"/g, '""')}"`
+    ];
+  });
+
+  const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+  const dateStr = localDateStr();
+  downloadFile(csvContent, `NolMart_Gifts_Samples_${dateStr}.csv`, 'text/csv;charset=utf-8;');
+}
+

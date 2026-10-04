@@ -510,3 +510,191 @@ export function getSOPMeasurements(recipeId, bottleSize = 30) {
     restTime: recipe.restTime || '10 minutes'
   };
 }
+
+// ====================================================
+// 🚗 CAR AIR FRESHENER SOP v1.2 ENGINE (OCTOBER 2026)
+// Standard Operating Procedures: Hanging Bottle & Gel Tin
+// Neither product uses ethanol. High heat stability.
+// ====================================================
+
+export const CAR_AIR_FRESHENER_RECIPES = [
+  {
+    id: 'car_strawberry',
+    name: 'Strawberry 🍓',
+    category: 'Sweet Fruity Gourmand (Single Oil)',
+    rating: 'BEST CHOICE / TESTED',
+    status: 'Tested Formulation',
+    scentKey: 'strawberry',
+    oilName: 'Strawberry Essential Oil',
+    description: 'Workshop-tested single-oil structure. Highly stable in vehicle heat (50–70°C) with zero scent drift. Appeals to daily drivers and ride-hailing operators.'
+  },
+  {
+    id: 'car_vanilla_28',
+    name: 'Vanilla 28 🍦',
+    category: 'Warm Creamy Sweet Gourmand',
+    rating: 'BEST CHOICE',
+    status: 'Tested Formulation',
+    scentKey: 'vanilla_28',
+    oilName: 'Vanilla 28 Essential Oil',
+    description: 'Heavy, slow-evaporating Madagascar vanilla base with very little top notes to lose. The most recognized and requested scent in car air fresheners.'
+  },
+  {
+    id: 'car_marshmallow',
+    name: 'Marshmallow 🍬',
+    category: 'Soft Sugary Sweet Gourmand',
+    rating: 'EXCELLENT',
+    status: 'Approved',
+    scentKey: 'marshmallow',
+    oilName: 'Marshmallow Essential Oil',
+    description: 'Soft sugary gourmand sweetness. Highly popular with younger drivers and daily commuters.'
+  },
+  {
+    id: 'car_coconut_passion',
+    name: 'Coconut Passion 🥥',
+    category: 'Sweet Tropical Warm',
+    rating: 'GOOD (Test First)',
+    status: 'Trial Ready',
+    scentKey: 'coconut_passion',
+    oilName: 'Coconut Passion Essential Oil',
+    description: 'Warm tropical coconut. Note: Fruity tropical notes soften over 4 weeks leaving a warm vanilla-like base.'
+  },
+  {
+    id: 'car_club_de_nuit',
+    name: 'Club de Nuit (Fresh Woody)',
+    category: 'Smoky Citrus Birch / Luxury Masculine',
+    rating: 'Allowed with Warning',
+    status: 'Customer Request',
+    scentKey: 'club_de_nuit',
+    oilName: 'Club de Nuit Essential Oil',
+    description: 'Smoky citrus-birch masculine profile. Fresh top notes will soften over weeks in vehicle heat.'
+  },
+  {
+    id: 'car_sauvage_dior',
+    name: 'Sauvage Dior (Fresh Spicy)',
+    category: 'Crisp Bergamot & Ambroxan',
+    rating: 'Allowed with Warning',
+    status: 'Customer Request',
+    scentKey: 'sauvage_dior',
+    oilName: 'Sauvage Dior Essential Oil',
+    description: 'Crisp bergamot & radiant ambroxan. Fresh top notes soften over time in hot parked cars.'
+  }
+];
+
+export const CAR_AIR_FRESHENER_FORMATS = {
+  hanging_bottle: {
+    id: 'hanging_bottle',
+    name: 'Hanging Mirror Bottle (8ml in 10ml Bottle)',
+    status: 'Tested Formulation (Active)',
+    carrier: 'Dipropylene Glycol (DPG) — No Ethanol, No Water, No Heating',
+    container: '10ml glass bottle + leak plug + raw unvarnished wooden cap + hanging cord',
+    oilMl: 2.5,
+    oilPercent: '31.25%',
+    dpgMl: 5.5,
+    dpgPercent: '68.75%',
+    fixativeDrops: 4,
+    fixativeMl: 0.2,
+    totalLiquidMl: 8.2,
+    fillMl: 8.0,
+    productionCost: 2700, // SOP Section 7.9 (Oil: 750 + DPG: 180 + Fixative: 30 + Bottle set: 1,000 + Label: 300 + Bag: 120 + Overhead: 200 + Wastage: 119)
+    sellingPrice: 10000,
+    wholesalePrice: 8000,
+    premiumPrice: 12000,
+    expectedLife: '3 to 6 weeks',
+    restTime: '24–48 hours (Cool & Dark)',
+    equipmentSpec: 'Calibrated syringe for DPG (5.5ml), separate clean syringe for Oil (2.5ml), 1ml syringe for Fixative (3–4 drops / 0.2ml)',
+    steps: [
+      'Prepare clean, dry 10ml glass bottles and inner leak plugs. Wipe raw unvarnished wooden caps (do NOT wet caps yet).',
+      'Draw 5.5 ml Dipropylene Glycol (DPG) using a clean syringe and dispense into a clean dry glass mixing jar.',
+      'Draw 2.5 ml Fragrance Oil using a separate clean syringe and add to the DPG.',
+      'Add 3 to 4 drops (about 0.2 ml) of Long-Lasting Fixative using a 1ml syringe.',
+      'Stir gently for 1 to 2 minutes until liquid is completely clear and homogeneous (cold mixing, no heat).',
+      'Cover jar and rest for 24 to 48 hours in a cool, dark cupboard so the scent and carrier bond evenly.',
+      'Fill each bottle with exactly 8.0 ml of the rested liquid using a clean syringe or small funnel, leaving headspace.',
+      'Press the inner plastic leak plug firmly into the bottle neck, screw on the unvarnished wooden cap, and tie the cord.',
+      'Test for leaks: stand upright on clean tissue for 24 hours, then tilt for 1 minute (only cap should dampen, no drips).',
+      'Apply label with scent name, date and batch number. Place in Mifuko A6 bag with customer care card.'
+    ]
+  },
+  gel_tin: {
+    id: 'gel_tin',
+    name: 'Gel Air Freshener Tin (120g Sealed Tin)',
+    status: 'Trial Specification (Ikeda-Style)',
+    carrier: 'Water-based agar gel with glycerin (No Ethanol)',
+    container: '150ml aluminium tin with vented lid',
+    waterGrams: 83.5,
+    agarGrams: 2.4,
+    glycerinGrams: 6.0,
+    oilGrams: 12.0, // ~13.3ml
+    polysorbateGrams: 15.0,
+    fixativeGrams: 0.5,
+    preservativeGrams: 0.6,
+    totalWeightGrams: 120.0,
+    productionCost: 7725, // SOP Section 6.1 (Materials: 5,270 + Packaging: 1,420 + Overhead: 700 + Wastage: 335)
+    sellingPrice: 15000,
+    wholesalePrice: 11000,
+    premiumPrice: 18000,
+    expectedLife: '6 to 8 weeks',
+    restTime: '48 hours sealed',
+    equipmentSpec: 'Digital scale (0.01g), thermometer (0–150°C), stainless steel pot with pouring lip, heat-proof spatula',
+    steps: [
+      'Place clean, dry 150ml aluminium tins on a level tray with lids off.',
+      'Make Scent Mix: In a clean jug, weigh 12.0g Fragrance Oil, 15.0g Polysorbate 80, and 0.5g Fixative. Stir 1 min until clear.',
+      'Make Agar Paste: In the pot, mix 2.4g Agar powder with 6.0g Glycerin into a smooth paste (prevents lumps), then add 83.5g Water.',
+      'Boil Gel: Heat on medium, stirring constantly, bring to gentle boil for 1–2 minutes until completely clear with no grains.',
+      'Top up lost steam water to starting weight, stir in 0.6g Preservative, remove from heat.',
+      'Cool Gel: Monitor with thermometer and let cool to 60–65°C. (Do not add oil above 65°C to avoid burning top notes).',
+      'Add Scent Mix: Pour scent mix in a thin stream while stirring gently for 60 seconds.',
+      'Fill Tins: Pour immediately into tins on digital scale to exactly 120g each within 5 minutes while still liquid.',
+      'Leave uncovered on a level surface for 1–2 hours until fully firm. Close lid, label, pack in Mifuko A6 bag, and rest 48 hours sealed.'
+    ]
+  }
+};
+
+export function getCarAirFreshenerMeasurements(recipeId, formatKey = 'hanging_bottle') {
+  const recipe = CAR_AIR_FRESHENER_RECIPES.find(r => r.id === recipeId) || CAR_AIR_FRESHENER_RECIPES[0];
+  const format = CAR_AIR_FRESHENER_FORMATS[formatKey] || CAR_AIR_FRESHENER_FORMATS.hanging_bottle;
+
+  const isHanging = formatKey === 'hanging_bottle';
+  const sellingPrice = format.sellingPrice;
+  const productionCost = format.productionCost;
+  const netProfit = sellingPrice - productionCost;
+  const marginPercent = Math.round((netProfit / sellingPrice) * 100);
+
+  let ingredients = [];
+  if (isHanging) {
+    ingredients = [
+      { key: recipe.scentKey, name: recipe.oilName, amount: `${format.oilMl} ml`, percentage: format.oilPercent, role: 'Pure Fragrance Oil (Single Scent)' },
+      { key: 'dpg', name: 'Dipropylene Glycol (DPG)', amount: `${format.dpgMl} ml`, percentage: format.dpgPercent, role: 'Slow-Evaporating Liquid Carrier' },
+      { key: 'fixative', name: 'Long-Lasting Fixative', amount: `${format.fixativeDrops} drops (~${format.fixativeMl}ml)`, percentage: 'Top drops', role: 'Scent Anchor & Longevity Extender' }
+    ];
+  } else {
+    ingredients = [
+      { key: recipe.scentKey, name: recipe.oilName, amount: `${format.oilGrams} g (~13.3ml)`, percentage: '10.0%', role: 'Pure Fragrance Oil' },
+      { key: 'water', name: 'Boiled / Bottled Water', amount: `${format.waterGrams} g`, percentage: '69.6%', role: 'Gel Base' },
+      { key: 'polysorbate_80', name: 'Polysorbate 80 (Solubiliser)', amount: `${format.polysorbateGrams} g`, percentage: '12.5%', role: 'Oil-Water Solubiliser' },
+      { key: 'glycerin', name: 'Cosmetic Glycerin', amount: `${format.glycerinGrams} g`, percentage: '5.0%', role: 'Anti-Drying & Moisture Retainer' },
+      { key: 'agar_powder', name: 'Agar-Agar Powder', amount: `${format.agarGrams} g`, percentage: '2.0%', role: 'Heat-Resistant Gelling Agent' },
+      { key: 'preservative', name: 'Broad-Spectrum Preservative', amount: `${format.preservativeGrams} g`, percentage: '0.5%', role: 'Anti-Mould & Anti-Bacteria' },
+      { key: 'fixative', name: 'Long-Lasting Fixative', amount: `${format.fixativeGrams} g`, percentage: '0.4%', role: 'Scent Anchor' }
+    ];
+  }
+
+  return {
+    isCarFreshener: true,
+    recipe,
+    format,
+    formatKey,
+    title: `${recipe.name} — ${format.name}`,
+    category: recipe.category,
+    carrier: format.carrier,
+    packagingName: format.container,
+    syringeSpec: format.equipmentSpec,
+    restTime: format.restTime,
+    sellingPrice,
+    productionCost,
+    netProfit,
+    marginPercent,
+    ingredients,
+    steps: format.steps
+  };
+}

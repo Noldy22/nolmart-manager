@@ -2,7 +2,7 @@
 // 100% Client-Side Storage - Perfume Artisan & Dropshipping Architecture
 
 const DB_NAME = 'NolMartBusinessDB';
-const DB_VERSION = 2; // Incremented for perfume-only inventory & SOP updates
+const DB_VERSION = 3; // Incremented for Car Air Freshener SOP v1.2 and Gifts tracking engine
 
 let dbInstance = null;
 
@@ -40,6 +40,14 @@ export function openDatabase() {
       // 4. Settings store
       if (!db.objectStoreNames.contains('settings')) {
         db.createObjectStore('settings', { keyPath: 'key' });
+      }
+
+      // 5. Gifts store (Complimentary give-aways, samples & influencer PR)
+      if (!db.objectStoreNames.contains('gifts')) {
+        const giftStore = db.createObjectStore('gifts', { keyPath: 'id', autoIncrement: true });
+        giftStore.createIndex('date', 'date', { unique: false });
+        giftStore.createIndex('productType', 'productType', { unique: false });
+        giftStore.createIndex('purpose', 'purpose', { unique: false });
       }
     };
 
@@ -115,6 +123,12 @@ export async function ensureCoreStock() {
   );
   if (!inventory.some(i => i.category === 'car_freshener')) {
     missing.push({ name: 'Strawberry Car Air Freshener (finished units)', category: 'car_freshener', subCategory: 'car_freshener_unit', quantity: 0, unit: 'pcs', unitCost: 0, sellingPrice: 10000, minThreshold: 3 });
+  }
+  if (!inventory.some(i => i.subCategory === 'dpg' || (i.name || '').toLowerCase().includes('dipropylene'))) {
+    missing.push({ name: 'Dipropylene Glycol (DPG Carrier)', category: 'raw_solvent', subCategory: 'dpg', quantity: 245, unit: 'ml', unitCost: 33, sellingPrice: 0, minThreshold: 50 });
+  }
+  if (!inventory.some(i => i.subCategory === 'car_diffuser_bottle' || (i.name || '').toLowerCase().includes('diffuser bottle'))) {
+    missing.push({ name: 'Empty Car Diffuser Bottles (10ml Glass + Plug + Wooden Cap + Cord)', category: 'packaging', subCategory: 'car_diffuser_bottle', quantity: 20, unit: 'pcs', unitCost: 1000, sellingPrice: 0, minThreshold: 5 });
   }
   if (missing.length === 0) return 0;
   return new Promise((resolve, reject) => {
@@ -414,6 +428,8 @@ export async function deductIngredientsForBlend({
   fixativeDrops = 3,
   fixativeMl = 0,
   ethanolMl = 0,
+  dpgMl = 0,
+  isCarFreshener = false,
   bottleSize = 30,
   bottleCount = 1
 }) {
@@ -491,14 +507,36 @@ export async function deductIngredientsForBlend({
         }
       }
 
-      // 4. Deduct Empty Bottle
-      const bottleSubCat = `${bottleSize}ml_bottle`;
-      const bottleItem = inventory.find(i => i.subCategory === bottleSubCat || i.name.includes(`${bottleSize}ml`));
-      if (bottleItem) {
-        bottleItem.quantity = Math.max(0, bottleItem.quantity - bottleCount);
-        bottleItem.lastUpdated = new Date().toISOString();
-        store.put(bottleItem);
-        deductions.push({ id: bottleItem.id, name: bottleItem.name, qty: bottleCount, unit: bottleItem.unit });
+      // 4. Deduct DPG Carrier if present
+      if (dpgMl > 0) {
+        const dpgItem = inventory.find(i => i.subCategory === 'dpg' || i.name.toLowerCase().includes('dipropylene'));
+        if (dpgItem) {
+          const qtyDeduct = +(dpgMl * bottleCount).toFixed(2);
+          dpgItem.quantity = Math.max(0, +(dpgItem.quantity - qtyDeduct).toFixed(2));
+          dpgItem.lastUpdated = new Date().toISOString();
+          store.put(dpgItem);
+          deductions.push({ id: dpgItem.id, name: dpgItem.name, qty: qtyDeduct, unit: dpgItem.unit });
+        }
+      }
+
+      // 5. Deduct Empty Bottle / Container
+      if (isCarFreshener) {
+        const carBottleItem = inventory.find(i => i.subCategory === 'car_diffuser_bottle' || i.subCategory === 'car_freshener_unit' || i.category === 'car_freshener');
+        if (carBottleItem) {
+          carBottleItem.quantity = Math.max(0, carBottleItem.quantity - bottleCount);
+          carBottleItem.lastUpdated = new Date().toISOString();
+          store.put(carBottleItem);
+          deductions.push({ id: carBottleItem.id, name: carBottleItem.name, qty: bottleCount, unit: carBottleItem.unit });
+        }
+      } else {
+        const bottleSubCat = `${bottleSize}ml_bottle`;
+        const bottleItem = inventory.find(i => i.subCategory === bottleSubCat || i.name.includes(`${bottleSize}ml`));
+        if (bottleItem) {
+          bottleItem.quantity = Math.max(0, bottleItem.quantity - bottleCount);
+          bottleItem.lastUpdated = new Date().toISOString();
+          store.put(bottleItem);
+          deductions.push({ id: bottleItem.id, name: bottleItem.name, qty: bottleCount, unit: bottleItem.unit });
+        }
       }
 
       // 5. Deduct Packaging Bag & Scent Label
@@ -669,19 +707,137 @@ export async function getAllBatches() {
   });
 }
 
+// ==========================================
+// GIFTS & COMPLIMENTARY SAMPLES (MARKETING ENGINE)
+// ==========================================
+export async function getAllGifts() {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('gifts', 'readonly');
+    const store = tx.objectStore('gifts');
+    const req = store.getAll();
+    req.onsuccess = () => {
+      const list = req.result || [];
+      list.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.id - a.id));
+      resolve(list);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function addGift(gift) {
+  const db = await openDatabase();
+  const fullGift = {
+    ...gift,
+    date: gift.date || localDateStr(),
+    timestamp: Date.now()
+  };
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('gifts', 'readwrite');
+    const store = tx.objectStore('gifts');
+    const req = store.add(fullGift);
+    req.onsuccess = () => resolve({ id: req.result, ...fullGift });
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function deleteGift(id) {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['gifts', 'inventory'], 'readwrite');
+    const giftStore = tx.objectStore('gifts');
+    const invStore = tx.objectStore('inventory');
+
+    const getReq = giftStore.get(id);
+    getReq.onsuccess = () => {
+      const g = getReq.result;
+      if (g && Array.isArray(g.deductions)) {
+        // Restore deducted inventory items
+        g.deductions.forEach(d => {
+          if (d && d.id && d.qty) {
+            const invReq = invStore.get(d.id);
+            invReq.onsuccess = () => {
+              const item = invReq.result;
+              if (item) {
+                item.quantity = +(Number(item.quantity || 0) + Number(d.qty)).toFixed(2);
+                item.lastUpdated = new Date().toISOString();
+                invStore.put(item);
+              }
+            };
+          }
+        });
+      }
+      giftStore.delete(id);
+    };
+
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function getGiftsSummary(period = 'all') {
+  const gifts = await getAllGifts();
+  const now = new Date();
+  const currentMonth = now.toISOString().slice(0, 7);
+  const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000)).toISOString().slice(0, 10);
+  const todayStr = localDateStr(now);
+
+  const filtered = gifts.filter(g => {
+    if (period === 'this_month') return g.date && g.date.startsWith(currentMonth);
+    if (period === 'last_30_days') return g.date && g.date >= thirtyDaysAgo;
+    if (period === 'today') return g.date && g.date === todayStr;
+    return true;
+  });
+
+  let totalRetailValue = 0;
+  let totalProductionCost = 0;
+  let totalUnits = 0;
+  const byPurpose = {};
+  const byProduct = {};
+
+  for (const g of filtered) {
+    const qty = Number(g.quantity) || 1;
+    const retail = Number(g.retailPrice) || 0;
+    const cost = Number(g.productionCost) || 0;
+
+    totalUnits += qty;
+    totalRetailValue += retail * qty;
+    totalProductionCost += cost * qty;
+
+    const pur = g.purpose || 'promotion';
+    byPurpose[pur] = (byPurpose[pur] || 0) + qty;
+
+    const prod = g.productType || 'other';
+    byProduct[prod] = (byProduct[prod] || 0) + qty;
+  }
+
+  return {
+    count: filtered.length,
+    totalUnits,
+    totalRetailValue,
+    totalProductionCost,
+    byPurpose,
+    byProduct,
+    items: filtered
+  };
+}
+
 export async function exportAllDataJSON() {
   const txs = await getAllTransactions();
   const inv = await getAllInventory();
   const batches = await getAllBatches();
+  const gifts = await getAllGifts();
 
   const backup = {
-    version: '2.0',
+    version: '3.0',
     exportDate: new Date().toISOString(),
     appName: 'NolMart Business Manager',
     data: {
       transactions: txs,
       inventory: inv,
-      batches: batches
+      batches: batches,
+      gifts: gifts
     }
   };
 
@@ -696,14 +852,16 @@ export async function importAllDataJSON(jsonString) {
 
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(['transactions', 'inventory', 'batches'], 'readwrite');
+    const tx = db.transaction(['transactions', 'inventory', 'batches', 'gifts'], 'readwrite');
     const txStore = tx.objectStore('transactions');
     const invStore = tx.objectStore('inventory');
     const batchStore = tx.objectStore('batches');
+    const giftStore = tx.objectStore('gifts');
 
     txStore.clear();
     invStore.clear();
     batchStore.clear();
+    giftStore.clear();
 
     for (const item of parsed.data.transactions) {
       delete item.id;
@@ -719,6 +877,12 @@ export async function importAllDataJSON(jsonString) {
         batchStore.add(item);
       }
     }
+    if (parsed.data.gifts) {
+      for (const item of parsed.data.gifts) {
+        delete item.id;
+        giftStore.add(item);
+      }
+    }
 
     tx.oncomplete = () => resolve(true);
     tx.onerror = (e) => reject(e.target.error);
@@ -728,10 +892,11 @@ export async function importAllDataJSON(jsonString) {
 export async function clearAllLocalData() {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(['transactions', 'inventory', 'batches'], 'readwrite');
+    const tx = db.transaction(['transactions', 'inventory', 'batches', 'gifts'], 'readwrite');
     tx.objectStore('transactions').clear();
     tx.objectStore('inventory').clear();
     tx.objectStore('batches').clear();
+    tx.objectStore('gifts').clear();
 
     tx.oncomplete = () => {
       checkAndSeedPerfumeInventory(db).then(() => resolve(true));
