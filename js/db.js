@@ -73,6 +73,7 @@ async function checkAndSeedPerfumeInventory(db) {
     { name: 'Burberry Weekend Essential Oil', category: 'raw_oil', scentKey: 'burberry_weekend', quantity: 100, unit: 'ml', unitCost: 160, sellingPrice: 0, minThreshold: 20 },
     { name: 'Marshmallow Essential Oil', category: 'raw_oil', scentKey: 'marshmallow', quantity: 100, unit: 'ml', unitCost: 150, sellingPrice: 0, minThreshold: 20 },
     { name: '212 VIP Men Essential Oil', category: 'raw_oil', scentKey: '212_vip_men', quantity: 100, unit: 'ml', unitCost: 170, sellingPrice: 0, minThreshold: 20 },
+    ...NEW_CORE_OILS,
 
     // 2. Solvents & Fixatives (SOP 60:40 standard)
     { name: 'Perfumery Ethanol (96%)', category: 'raw_solvent', subCategory: 'ethanol', quantity: 2.0, unit: 'L', unitCost: 12000, sellingPrice: 0, minThreshold: 0.5 },
@@ -83,15 +84,54 @@ async function checkAndSeedPerfumeInventory(db) {
     { name: 'Empty 10ml Spray Atomizer Bottles', category: 'packaging', subCategory: '10ml_bottle', quantity: 36, unit: 'pcs', unitCost: 1200, sellingPrice: 0, minThreshold: 10 },
     { name: 'Empty 6ml Roller Glass Bottles', category: 'packaging', subCategory: '6ml_bottle', quantity: 48, unit: 'pcs', unitCost: 800, sellingPrice: 0, minThreshold: 12 },
     { name: 'NolMart A6 Packaging Bags', category: 'packaging', subCategory: 'bags', quantity: 80, unit: 'pcs', unitCost: 350, sellingPrice: 0, minThreshold: 20 },
-    { name: 'NolMart Waterproof Scents Labels', category: 'packaging', subCategory: 'labels', quantity: 120, unit: 'pcs', unitCost: 250, sellingPrice: 0, minThreshold: 25 }
+    { name: 'NolMart Waterproof Scents Labels', category: 'packaging', subCategory: 'labels', quantity: 120, unit: 'pcs', unitCost: 250, sellingPrice: 0, minThreshold: 25 },
+
+    // 4. Car Air Fresheners (finished units)
+    { name: 'Strawberry Car Air Freshener (finished units)', category: 'car_freshener', subCategory: 'car_freshener_unit', quantity: 0, unit: 'pcs', unitCost: 0, sellingPrice: 10000, minThreshold: 3 }
   ];
 
   const tx = db.transaction('inventory', 'readwrite');
   const store = tx.objectStore('inventory');
   for (const item of initialPerfumeStock) {
     item.lastUpdated = new Date().toISOString();
-    store.add(item);
+    store.add({ ...item });
   }
+  return new Promise((resolve) => { tx.oncomplete = () => resolve(); tx.onerror = () => resolve(); });
+}
+
+// Oils added after launch (Oct 2026). Quantity starts at 0 — set real stock with "Restock".
+const NEW_CORE_OILS = [
+  { name: 'Club de Nuit Essential Oil', category: 'raw_oil', scentKey: 'club_de_nuit', quantity: 0, unit: 'ml', unitCost: 0, sellingPrice: 0, minThreshold: 20 },
+  { name: 'Sauvage Dior Essential Oil', category: 'raw_oil', scentKey: 'sauvage_dior', quantity: 0, unit: 'ml', unitCost: 0, sellingPrice: 0, minThreshold: 20 },
+  { name: 'Strawberry Essential Oil', category: 'raw_oil', scentKey: 'strawberry', quantity: 0, unit: 'ml', unitCost: 0, sellingPrice: 0, minThreshold: 20 }
+];
+
+// Idempotent migration: adds any missing core oil / car-freshener rows to existing databases
+export async function ensureCoreStock() {
+  const db = await openDatabase();
+  const inventory = await getAllInventory();
+  const missing = NEW_CORE_OILS.filter(o =>
+    !inventory.some(i => i.scentKey === o.scentKey || (i.name || '').toLowerCase() === o.name.toLowerCase())
+  );
+  if (!inventory.some(i => i.category === 'car_freshener')) {
+    missing.push({ name: 'Strawberry Car Air Freshener (finished units)', category: 'car_freshener', subCategory: 'car_freshener_unit', quantity: 0, unit: 'pcs', unitCost: 0, sellingPrice: 10000, minThreshold: 3 });
+  }
+  if (missing.length === 0) return 0;
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('inventory', 'readwrite');
+    const store = tx.objectStore('inventory');
+    missing.forEach(item => store.add({ ...item, lastUpdated: new Date().toISOString() }));
+    tx.oncomplete = () => resolve(missing.length);
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+
+// Local calendar date (YYYY-MM-DD) in the device's timezone (EAT), not UTC
+export function localDateStr(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 function getStoreCount(db, storeName) {
@@ -101,6 +141,28 @@ function getStoreCount(db, storeName) {
     const countReq = store.count();
     countReq.onsuccess = () => resolve(countReq.result);
     countReq.onerror = () => resolve(0);
+  });
+}
+
+// ==========================================
+// SETTINGS (key/value)
+// ==========================================
+export async function getSetting(key, fallback = null) {
+  const db = await openDatabase();
+  return new Promise((resolve) => {
+    const req = db.transaction('settings', 'readonly').objectStore('settings').get(key);
+    req.onsuccess = () => resolve(req.result ? req.result.value : fallback);
+    req.onerror = () => resolve(fallback);
+  });
+}
+
+export async function setSetting(key, value) {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('settings', 'readwrite');
+    tx.objectStore('settings').put({ key, value });
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = (e) => reject(e.target.error);
   });
 }
 
@@ -120,9 +182,14 @@ export async function addTransaction(transactionData) {
       amount: parseFloat(transactionData.amount) || 0,
       fee: parseFloat(transactionData.fee) || 0,
       quantity: parseInt(transactionData.quantity, 10) || 1,
-      date: transactionData.date || new Date().toISOString().split('T')[0],
+      date: transactionData.date || localDateStr(),
       timestamp: Date.now()
     };
+
+    // If deductions metadata is provided, save it on the entry so deletion can reverse it
+    if (transactionData.deductions && Array.isArray(transactionData.deductions)) {
+      entry.deductions = transactionData.deductions;
+    }
 
     const addReq = txStore.add(entry);
 
@@ -166,11 +233,61 @@ export async function getAllTransactions() {
 export async function deleteTransaction(id) {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction('transactions', 'readwrite');
-    const store = tx.objectStore('transactions');
-    const req = store.delete(id);
-    req.onsuccess = () => resolve(true);
-    req.onerror = () => reject(req.error);
+    const tx = db.transaction(['transactions', 'inventory'], 'readwrite');
+    const txStore = tx.objectStore('transactions');
+    const invStore = tx.objectStore('inventory');
+
+    const getReq = txStore.get(id);
+    getReq.onsuccess = () => {
+      const txData = getReq.result;
+      if (!txData) {
+        txStore.delete(id);
+        return;
+      }
+
+      // 1. Revert deductions if any (e.g. SOP blend ingredients or car freshener units)
+      if (txData.deductions && Array.isArray(txData.deductions)) {
+        for (const d of txData.deductions) {
+          if (d.id && d.qty) {
+            const itemReq = invStore.get(d.id);
+            itemReq.onsuccess = () => {
+              const item = itemReq.result;
+              if (item) {
+                item.quantity = +(item.quantity + Number(d.qty)).toFixed(2);
+                item.lastUpdated = new Date().toISOString();
+                invStore.put(item);
+              }
+            };
+          }
+        }
+      }
+
+      // 2. Revert single-item linked inventory if inventoryItemId was recorded
+      if (txData.inventoryItemId) {
+        const itemReq = invStore.get(txData.inventoryItemId);
+        itemReq.onsuccess = () => {
+          const item = itemReq.result;
+          if (item) {
+            if (txData.type === 'income') {
+              // Was a sale that decremented stock -> restore it
+              item.quantity = +(item.quantity + (txData.quantity || 1)).toFixed(2);
+            } else if (txData.type === 'expense') {
+              // Was a restock that incremented stock -> deduct it back
+              const deductQty = txData.restockQty || txData.quantity || 1;
+              item.quantity = Math.max(0, +(item.quantity - deductQty).toFixed(2));
+            }
+            item.lastUpdated = new Date().toISOString();
+            invStore.put(item);
+          }
+        };
+      }
+
+      // 3. Delete the transaction record
+      txStore.delete(id);
+    };
+
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = (e) => reject(e.target.error);
   });
 }
 
@@ -240,6 +357,52 @@ export async function deleteInventoryItem(id) {
 }
 
 // ==========================================
+// RESTOCK INVENTORY (ONE-STEP RESTOCK + EXPENSE LOGGING)
+// ==========================================
+export async function restockInventoryItem({ itemId, quantity, totalCost = 0, paymentMethod = 'cash', date = null, notes = '' }) {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['inventory', 'transactions'], 'readwrite');
+    const invStore = tx.objectStore('inventory');
+    const txStore = tx.objectStore('transactions');
+
+    const getReq = invStore.get(itemId);
+    getReq.onsuccess = () => {
+      const item = getReq.result;
+      if (!item) return reject(new Error('Item not found'));
+      const addQty = parseFloat(quantity) || 0;
+      item.quantity = +(item.quantity + addQty).toFixed(2);
+      item.lastUpdated = new Date().toISOString();
+      invStore.put(item);
+
+      const cost = parseFloat(totalCost) || 0;
+      let txId = null;
+      if (cost > 0) {
+        const txEntry = {
+          type: 'expense',
+          category: 'raw_materials',
+          description: `Restock: ${item.name} (+${addQty} ${item.unit || 'units'})`,
+          amount: cost,
+          fee: 0,
+          quantity: 1,
+          restockQty: addQty,
+          paymentMethod: paymentMethod || 'cash',
+          inventoryItemId: item.id,
+          date: date || localDateStr(),
+          timestamp: Date.now(),
+          notes: notes || `Restocked ${addQty} ${item.unit || 'units'}`
+        };
+        const addTxReq = txStore.add(txEntry);
+        addTxReq.onsuccess = () => { txId = addTxReq.result; };
+      }
+      tx.oncomplete = () => resolve({ item, txId });
+    };
+    getReq.onerror = () => reject(getReq.error);
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+
+// ==========================================
 // DEDUCT RAW INGREDIENTS FOR ON-DEMAND BLEND (SOP 60:40)
 // ==========================================
 export async function deductIngredientsForBlend({
@@ -262,6 +425,7 @@ export async function deductIngredientsForBlend({
 
     req.onsuccess = () => {
       const inventory = req.result;
+      const deductions = [];
 
       // 1. Deduct Oils from Ingredients Array (multi-oil blends like 2-scent or 3-scent Paradise Mist)
       if (ingredients && ingredients.length > 0) {
@@ -272,8 +436,11 @@ export async function deductIngredientsForBlend({
               i.name.toLowerCase().includes(ing.name.toLowerCase().replace(' essential oil', '').trim())
             );
             if (item) {
-              item.quantity = Math.max(0, +(item.quantity - (ing.ml * bottleCount)).toFixed(2));
+              const qtyDeduct = +(ing.ml * bottleCount).toFixed(2);
+              item.quantity = Math.max(0, +(item.quantity - qtyDeduct).toFixed(2));
+              item.lastUpdated = new Date().toISOString();
               store.put(item);
+              deductions.push({ id: item.id, name: item.name, qty: qtyDeduct, unit: item.unit });
             }
           }
         }
@@ -282,15 +449,21 @@ export async function deductIngredientsForBlend({
         if (primaryOilKey && primaryOilMl > 0) {
           const item = inventory.find(i => i.scentKey === primaryOilKey || i.name.toLowerCase().includes(primaryOilKey.toLowerCase()));
           if (item) {
-            item.quantity = Math.max(0, +(item.quantity - (primaryOilMl * bottleCount)).toFixed(2));
+            const qtyDeduct = +(primaryOilMl * bottleCount).toFixed(2);
+            item.quantity = Math.max(0, +(item.quantity - qtyDeduct).toFixed(2));
+            item.lastUpdated = new Date().toISOString();
             store.put(item);
+            deductions.push({ id: item.id, name: item.name, qty: qtyDeduct, unit: item.unit });
           }
         }
         if (secondaryOilKey && secondaryOilMl > 0) {
           const item = inventory.find(i => i.scentKey === secondaryOilKey || i.name.toLowerCase().includes(secondaryOilKey.toLowerCase()));
           if (item) {
-            item.quantity = Math.max(0, +(item.quantity - (secondaryOilMl * bottleCount)).toFixed(2));
+            const qtyDeduct = +(secondaryOilMl * bottleCount).toFixed(2);
+            item.quantity = Math.max(0, +(item.quantity - qtyDeduct).toFixed(2));
+            item.lastUpdated = new Date().toISOString();
             store.put(item);
+            deductions.push({ id: item.id, name: item.name, qty: qtyDeduct, unit: item.unit });
           }
         }
       }
@@ -299,17 +472,22 @@ export async function deductIngredientsForBlend({
       const fixativeDeductMl = fixativeMl > 0 ? fixativeMl : ((fixativeDrops || 3) * 0.05);
       const fixativeItem = inventory.find(i => i.subCategory === 'fixative' || i.name.toLowerCase().includes('fixative'));
       if (fixativeItem) {
-        fixativeItem.quantity = Math.max(0, +(fixativeItem.quantity - (fixativeDeductMl * bottleCount)).toFixed(2));
+        const qtyDeduct = +(fixativeDeductMl * bottleCount).toFixed(2);
+        fixativeItem.quantity = Math.max(0, +(fixativeItem.quantity - qtyDeduct).toFixed(2));
+        fixativeItem.lastUpdated = new Date().toISOString();
         store.put(fixativeItem);
+        deductions.push({ id: fixativeItem.id, name: fixativeItem.name, qty: qtyDeduct, unit: fixativeItem.unit });
       }
 
       // 3. Deduct Ethanol (convert ml to Liters if stored in L)
       if (ethanolMl > 0) {
         const ethanolItem = inventory.find(i => i.subCategory === 'ethanol' || i.name.toLowerCase().includes('ethanol'));
         if (ethanolItem) {
-          const litersNeeded = (ethanolMl * bottleCount) / 1000;
+          const litersNeeded = +((ethanolMl * bottleCount) / 1000).toFixed(3);
           ethanolItem.quantity = Math.max(0, +(ethanolItem.quantity - litersNeeded).toFixed(3));
+          ethanolItem.lastUpdated = new Date().toISOString();
           store.put(ethanolItem);
+          deductions.push({ id: ethanolItem.id, name: ethanolItem.name, qty: litersNeeded, unit: ethanolItem.unit });
         }
       }
 
@@ -318,23 +496,30 @@ export async function deductIngredientsForBlend({
       const bottleItem = inventory.find(i => i.subCategory === bottleSubCat || i.name.includes(`${bottleSize}ml`));
       if (bottleItem) {
         bottleItem.quantity = Math.max(0, bottleItem.quantity - bottleCount);
+        bottleItem.lastUpdated = new Date().toISOString();
         store.put(bottleItem);
+        deductions.push({ id: bottleItem.id, name: bottleItem.name, qty: bottleCount, unit: bottleItem.unit });
       }
 
       // 5. Deduct Packaging Bag & Scent Label
       const bagItem = inventory.find(i => i.subCategory === 'bags' || i.name.toLowerCase().includes('bag'));
       if (bagItem) {
         bagItem.quantity = Math.max(0, bagItem.quantity - bottleCount);
+        bagItem.lastUpdated = new Date().toISOString();
         store.put(bagItem);
+        deductions.push({ id: bagItem.id, name: bagItem.name, qty: bottleCount, unit: bagItem.unit });
       }
       const labelItem = inventory.find(i => i.subCategory === 'labels' || i.name.toLowerCase().includes('label'));
       if (labelItem) {
         labelItem.quantity = Math.max(0, labelItem.quantity - bottleCount);
+        labelItem.lastUpdated = new Date().toISOString();
         store.put(labelItem);
+        deductions.push({ id: labelItem.id, name: labelItem.name, qty: bottleCount, unit: labelItem.unit });
       }
+
+      tx.oncomplete = () => resolve(deductions);
     };
 
-    tx.oncomplete = () => resolve(true);
     tx.onerror = (e) => reject(e.target.error);
   });
 }
@@ -344,19 +529,19 @@ export async function deductIngredientsForBlend({
 // ==========================================
 export async function getFinancialSummary(filterDateRange = 'all') {
   const transactions = await getAllTransactions();
-  const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = localDateStr();
   const currentYearMonth = todayStr.substring(0, 7);
 
   let filtered = transactions;
   if (filterDateRange === 'today') {
     filtered = transactions.filter(t => t.date === todayStr);
   } else if (filterDateRange === 'this_month') {
-    filtered = transactions.filter(t => t.date.startsWith(currentYearMonth));
+    filtered = transactions.filter(t => t.date && t.date.startsWith(currentYearMonth));
   } else if (filterDateRange === 'last_30_days') {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    filtered = transactions.filter(t => new Date(t.date) >= thirtyDaysAgo);
+    const thirtyDaysStr = localDateStr(thirtyDaysAgo);
+    filtered = transactions.filter(t => (t.date || '') >= thirtyDaysStr);
   }
 
   let totalSales = 0;
@@ -366,6 +551,7 @@ export async function getFinancialSummary(filterDateRange = 'all') {
   let carFreshenerSales = 0;
   let carFreshenerUnits = 0;
   let carFreshenerCount = 0;
+  let salesCount = 0;
 
   const paymentBreakdown = {
     cash: 0,
@@ -424,8 +610,11 @@ export async function getFinancialSummary(filterDateRange = 'all') {
     if (t.type === 'income') {
       if (t.category === 'capital') {
         capitalInjected += amount;
+      } else if (t.category === 'balance_adjustment') {
+        // Exclude balance_adjustment surplus from operating sales revenue!
       } else {
         totalSales += amount;
+        salesCount += 1;
         if (t.category === 'car_freshener_sale') {
           carFreshenerSales += amount;
           carFreshenerUnits += Number(t.quantity) || 1;
@@ -435,6 +624,8 @@ export async function getFinancialSummary(filterDateRange = 'all') {
     } else if (t.type === 'expense') {
       if (t.category === 'owner_draw') {
         ownersDraw += totalOutflow;
+      } else if (t.category === 'balance_adjustment') {
+        // Exclude balance_adjustment shortfall from operating expenses!
       } else {
         totalExpenses += totalOutflow;
       }
@@ -462,6 +653,7 @@ export async function getFinancialSummary(filterDateRange = 'all') {
     carFreshenerSales,
     carFreshenerUnits,
     carFreshenerCount,
+    salesCount,
     totalTransactions: filtered.length
   };
 }

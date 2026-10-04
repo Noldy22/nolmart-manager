@@ -88,6 +88,22 @@
         <button class="filter-tab" data-period="today">Today</button>
       </div>
 
+      <!-- Backup Reminder Banner -->
+      <div id="backupReminderBanner" class="low-stock-banner" style="display: none; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); margin-bottom: 10px;">
+        <div class="alert-text">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #60a5fa;">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/>
+            <polyline points="7 3 7 8 15 8"/>
+          </svg>
+          <span style="color: #93c5fd;"><strong>Backup Recommended:</strong> Keep your business records safe.</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button class="btn-alert" id="backupNowBannerBtn" style="background: #2563eb; color: #fff;">Backup Now</button>
+          <button id="dismissBackupBannerBtn" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; padding: 0 4px;" title="Dismiss">&times;</button>
+        </div>
+      </div>
+
       <!-- Low Stock Alert Banner -->
       <div id="lowStockBanner" class="low-stock-banner hidden">
         <div class="alert-text">
@@ -186,7 +202,10 @@
       <div class="money-methods-card">
         <div class="card-heading" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
           <span>Payment Channels</span>
-          <div style="display: flex; gap: 6px;">
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button id="openCapitalModalBtn" class="btn-capital-sm" title="Add Capital / Opening Balance" style="background: rgba(16, 185, 129, 0.15); color: var(--emerald); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; padding: 4px 8px; font-size: 0.72rem; font-weight: 600; cursor: pointer;">
+              + Capital
+            </button>
             <button id="openTransferFromChannelsBtn" class="btn-transfer-sm" title="Move money between channels">
               ⇄ Transfer
             </button>
@@ -216,8 +235,8 @@
             <span class="method-name">Bank / CRDB</span>
             <span class="method-amount" id="methodBank">0 TZS</span>
           </div>
-          <div class="method-item">
-            <span class="method-name">Tigo Pesa</span>
+          <div class="method-item" id="cardTigo">
+            <span class="method-name">Mixx by Yas (Tigo)</span>
             <span class="method-amount" id="methodTigo">0 TZS</span>
           </div>
         </div>
@@ -435,6 +454,17 @@
       </div>
 
       <form id="saleForm">
+        <!-- Quick Size & Product Preset Pills -->
+        <div style="margin-bottom: 12px;">
+          <label class="form-label" style="margin-bottom: 6px;">Quick Presets</label>
+          <div class="quick-size-pills" style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="btn-size-pill" data-size="6" data-price="7000" data-desc="6ml Pocket Roller" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: #fff; border-radius: 6px; padding: 6px 10px; font-size: 0.78rem; font-weight: 600; cursor: pointer;">6ml (7k)</button>
+            <button type="button" class="btn-size-pill" data-size="10" data-price="15000" data-desc="10ml Perfume Spray" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: #fff; border-radius: 6px; padding: 6px 10px; font-size: 0.78rem; font-weight: 600; cursor: pointer;">10ml (15k)</button>
+            <button type="button" class="btn-size-pill active" data-size="30" data-price="35000" data-desc="30ml Perfume Spray" style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: var(--emerald); border-radius: 6px; padding: 6px 10px; font-size: 0.78rem; font-weight: 600; cursor: pointer;">30ml (35k)</button>
+            <button type="button" class="btn-size-pill" data-size="car" data-price="10000" data-desc="Strawberry Car Air Freshener" data-category="car_freshener_sale" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: var(--amber); border-radius: 6px; padding: 6px 10px; font-size: 0.78rem; font-weight: 600; cursor: pointer;">🚗 Car (10k)</button>
+          </div>
+        </div>
+
         <div class="form-group" style="margin-bottom: 10px;">
           <label class="form-label">Product / Sale Type</label>
           <select id="saleProductTypeSelect" class="form-select">
@@ -468,19 +498,33 @@
           <div class="form-group">
             <label class="form-label">Total Amount (TZS)</label>
             <input type="number" id="saleAmount" class="form-input" value="35000" required>
+            <div id="saleDiscountNotice" style="font-size: 0.72rem; color: var(--emerald); margin-top: 3px; display: none;"></div>
           </div>
         </div>
 
-        <div class="form-group" style="margin-bottom: 10px;">
-          <label class="form-label">Payment Channel</label>
-          <select id="salePaymentMethod" class="form-select">
-            <option value="mpesa">M-Pesa</option>
-            <option value="cash">Cash</option>
-            <option value="airtel">Airtel Money</option>
-            <option value="selcom">Selcom</option>
-            <option value="bank">Bank / CRDB</option>
-            <option value="tigo">Tigo Pesa</option>
-          </select>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+          <div class="form-group">
+            <label class="form-label">Payment Channel</label>
+            <select id="salePaymentMethod" class="form-select">
+              <option value="mpesa">M-Pesa</option>
+              <option value="cash">Cash</option>
+              <option value="airtel">Airtel Money</option>
+              <option value="selcom">Selcom</option>
+              <option value="bank">Bank / CRDB</option>
+              <option value="tigo">Mixx by Yas (Tigo)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sale Source</label>
+            <select id="saleSource" class="form-select">
+              <option value="WhatsApp">💬 WhatsApp</option>
+              <option value="Instagram">📸 Instagram</option>
+              <option value="TikTok">🎵 TikTok</option>
+              <option value="Website">🌐 Website</option>
+              <option value="Walk-in">🚶 Walk-in</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
@@ -557,7 +601,7 @@
               <option value="airtel">Airtel Money</option>
               <option value="selcom">Selcom</option>
               <option value="bank">Bank / CRDB</option>
-              <option value="tigo">Tigo Pesa</option>
+              <option value="tigo">Mixx by Yas (Tigo)</option>
             </select>
           </div>
         </div>
@@ -612,7 +656,7 @@
               <option value="airtel">Airtel Money</option>
               <option value="selcom">Selcom</option>
               <option value="bank">Bank / CRDB</option>
-              <option value="tigo">Tigo Pesa</option>
+              <option value="tigo">Mixx by Yas (Tigo)</option>
             </select>
             <div id="transferFromBalanceHint" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Bal: 0 TZS</div>
           </div>
@@ -624,7 +668,7 @@
               <option value="airtel" selected>Airtel Money</option>
               <option value="selcom">Selcom</option>
               <option value="bank">Bank / CRDB</option>
-              <option value="tigo">Tigo Pesa</option>
+              <option value="tigo">Mixx by Yas (Tigo)</option>
             </select>
             <div id="transferToBalanceHint" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Bal: 0 TZS</div>
           </div>
@@ -751,7 +795,7 @@
             <option value="airtel">Airtel Money</option>
             <option value="selcom">Selcom</option>
             <option value="bank">Bank / CRDB</option>
-            <option value="tigo">Tigo Pesa</option>
+            <option value="tigo">Mixx by Yas (Tigo)</option>
           </select>
         </div>
 
@@ -797,7 +841,7 @@
             <option value="airtel">Airtel Money</option>
             <option value="selcom">Selcom</option>
             <option value="bank">Bank / CRDB</option>
-            <option value="tigo">Tigo Pesa</option>
+            <option value="tigo">Mixx by Yas (Tigo)</option>
           </select>
         </div>
 
@@ -829,6 +873,111 @@
           <button type="submit" id="submitRebalanceBtn" class="btn-primary" style="background: var(--cyan); color: #0b0f19; font-weight: 700;">
             Confirm Rebalancing
           </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: ONE-STEP RESTOCK INVENTORY -->
+  <!-- ============================================== -->
+  <div id="restockModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title text-cyan">📦 One-Step Restock</h3>
+        <button class="close-btn" data-close-modal="restockModal">&times;</button>
+      </div>
+
+      <form id="restockForm">
+        <input type="hidden" id="restockItemId">
+
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+          <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Restocking Item</div>
+          <div id="restockItemName" style="font-weight: 700; font-size: 1rem; color: #fff; margin-top: 2px;">Item Name</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+            Current Stock: <strong id="restockCurrentQty" style="color: var(--amber);">0</strong> <span id="restockItemUnit">ml</span>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+          <div class="form-group">
+            <label class="form-label">Quantity to Add (<span id="restockUnitLabel">units</span>)</label>
+            <input type="number" id="restockQtyToAdd" class="form-input" min="0.1" step="any" placeholder="e.g. 50" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Total Purchase Cost (TZS)</label>
+            <input type="number" id="restockTotalCost" class="form-input" min="0" placeholder="0 if already paid" value="0">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label class="form-label">Paid From (if cost > 0)</label>
+          <select id="restockPaymentMethod" class="form-select">
+            <option value="cash">Cash</option>
+            <option value="mpesa">M-Pesa</option>
+            <option value="airtel">Airtel Money</option>
+            <option value="selcom">Selcom</option>
+            <option value="bank">Bank / CRDB</option>
+            <option value="tigo">Mixx by Yas (Tigo)</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Notes (Optional)</label>
+          <input type="text" id="restockNotes" class="form-input" placeholder="e.g. Kariakoo batch supplier">
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" class="btn-primary" style="background: var(--cyan); color: #0b0f19; font-weight: 700;">Confirm Restock & Log Expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: ADD CAPITAL / OPENING BALANCE -->
+  <!-- ============================================== -->
+  <div id="capitalModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title text-emerald">💰 Add Capital / Opening Balance</h3>
+        <button class="close-btn" data-close-modal="capitalModal">&times;</button>
+      </div>
+
+      <form id="capitalForm">
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label class="form-label">Destination Channel</label>
+          <select id="capitalPaymentMethod" class="form-select">
+            <option value="cash">Cash</option>
+            <option value="mpesa">M-Pesa</option>
+            <option value="airtel">Airtel Money</option>
+            <option value="selcom">Selcom</option>
+            <option value="bank">Bank / CRDB</option>
+            <option value="tigo">Mixx by Yas (Tigo)</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label class="form-label">Injected Amount (TZS)</label>
+          <input type="number" id="capitalAmount" class="form-input" placeholder="e.g. 500000" min="1" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label class="form-label">Description / Source</label>
+          <input type="text" id="capitalDescription" class="form-input" placeholder="e.g. Business Opening Balance / Personal Savings" value="Opening Balance">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label">Date</label>
+          <input type="date" id="capitalDate" class="form-input" required>
+        </div>
+
+        <div style="font-size: 0.74rem; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4; background: rgba(16, 185, 129, 0.08); padding: 8px 10px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.2);">
+          💡 Capital injections increase channel balances and expected cash in hand without distorting operating perfume sales revenue or profit.
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" class="btn-primary" style="background: var(--emerald); font-weight: 700;">Record Capital</button>
         </div>
       </form>
     </div>

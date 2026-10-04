@@ -20,7 +20,7 @@ export const RECIPES_CATALOG = [
       { key: '212_vip_men', name: '212 VIP Men Essential Oil', ratio: 0.55 },
       { key: 'noir_extreme', name: 'Tom Ford Noir Extreme Essential Oil', ratio: 0.45 }
     ],
-    prices: { 6: 8000, 10: 18000, 30: 55000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'cashmere_bloom',
@@ -34,7 +34,7 @@ export const RECIPES_CATALOG = [
       { key: 'marshmallow', name: 'Marshmallow Essential Oil', ratio: 0.55 },
       { key: 'burberry_weekend', name: 'Burberry Weekend Essential Oil', ratio: 0.45 }
     ],
-    prices: { 6: 8000, 10: 18000, 30: 55000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'azure_vip',
@@ -48,7 +48,7 @@ export const RECIPES_CATALOG = [
       { key: '212_vip_men', name: '212 VIP Men Essential Oil', ratio: 0.35 },
       { key: 'vanilla_28', name: 'Vanilla 28 Essential Oil', ratio: 0.65 }
     ],
-    prices: { 6: 8000, 10: 18000, 30: 50000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'onyx_bloom',
@@ -62,7 +62,7 @@ export const RECIPES_CATALOG = [
       { key: 'noir_extreme', name: 'Tom Ford Noir Extreme Essential Oil', ratio: 0.55 },
       { key: 'pink_chiffon', name: 'Pink Chiffon Essential Oil', ratio: 0.45 }
     ],
-    prices: { 6: 8000, 10: 18000, 30: 55000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
 
   // ====================================================
@@ -80,7 +80,7 @@ export const RECIPES_CATALOG = [
       { key: 'noir_extreme', name: 'Tom Ford Noir Extreme Essential Oil', ratio: 0.75 },
       { key: 'reef', name: 'Reef Essential Oil', ratio: 0.25 }
     ],
-    prices: { 6: 8000, 10: 14000, 30: 40000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'coastal_dream',
@@ -94,7 +94,7 @@ export const RECIPES_CATALOG = [
       { key: 'coconut_passion', name: 'Coconut Passion Essential Oil', ratio: 0.60 },
       { key: 'vanilla_28', name: 'Vanilla 28 Essential Oil', ratio: 0.40 }
     ],
-    prices: { 6: 7000, 10: 12000, 30: 35000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'electric_rush',
@@ -108,7 +108,7 @@ export const RECIPES_CATALOG = [
       { key: 'now_rave', name: 'Now Rave Essential Oil', ratio: 0.70 },
       { key: 'coconut_passion', name: 'Coconut Passion Essential Oil', ratio: 0.30 }
     ],
-    prices: { 6: 7000, 10: 12000, 30: 35000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'velvet_noir',
@@ -122,7 +122,7 @@ export const RECIPES_CATALOG = [
       { key: 'now_rave', name: 'Now Rave Essential Oil', ratio: 0.50 },
       { key: 'vanilla_28', name: 'Vanilla 28 Essential Oil', ratio: 0.50 }
     ],
-    prices: { 6: 7000, 10: 12000, 30: 38000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'paradise_mist',
@@ -137,7 +137,7 @@ export const RECIPES_CATALOG = [
       { key: 'vanilla_28', name: 'Vanilla 28 Essential Oil', ratio: 0.35 },
       { key: 'now_rave', name: 'Now Rave Essential Oil', ratio: 0.25 }
     ],
-    prices: { 6: 8000, 10: 15000, 30: 45000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'tropical_bloom',
@@ -151,7 +151,7 @@ export const RECIPES_CATALOG = [
       { key: 'pink_chiffon', name: 'Pink Chiffon Essential Oil', ratio: 0.55 },
       { key: 'coconut_passion', name: 'Coconut Passion Essential Oil', ratio: 0.45 }
     ],
-    prices: { 6: 7000, 10: 12000, 30: 35000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'ocean_breeze',
@@ -165,7 +165,7 @@ export const RECIPES_CATALOG = [
       { key: 'reef', name: 'Reef Essential Oil', ratio: 0.60 },
       { key: 'now_rave', name: 'Now Rave Essential Oil', ratio: 0.40 }
     ],
-    prices: { 6: 7000, 10: 12000, 30: 35000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'midnight_velvet',
@@ -179,7 +179,7 @@ export const RECIPES_CATALOG = [
       { key: 'noir_extreme', name: 'Tom Ford Noir Extreme Essential Oil', ratio: 0.60 },
       { key: 'vanilla_28', name: 'Vanilla 28 Essential Oil', ratio: 0.40 }
     ],
-    prices: { 6: 8000, 10: 15000, 30: 45000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'rose_cream',
@@ -193,7 +193,7 @@ export const RECIPES_CATALOG = [
       { key: 'pink_chiffon', name: 'Pink Chiffon Essential Oil', ratio: 0.50 },
       { key: 'vanilla_28', name: 'Vanilla 28 Essential Oil', ratio: 0.50 }
     ],
-    prices: { 6: 7000, 10: 12000, 30: 35000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'lagoon',
@@ -207,11 +207,11 @@ export const RECIPES_CATALOG = [
       { key: 'reef', name: 'Reef Essential Oil', ratio: 0.55 },
       { key: 'coconut_passion', name: 'Coconut Passion Essential Oil', ratio: 0.45 }
     ],
-    prices: { 6: 7000, 10: 12000, 30: 35000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
 
   // ====================================================
-  // 💎 PURE SCENTS (The 9 Core Scents from SOP Sections 1 & 3)
+  // 💎 PURE SCENTS (Core single-oil scents)
   // ====================================================
   {
     id: 'now_rave',
@@ -224,7 +224,7 @@ export const RECIPES_CATALOG = [
     oils: [
       { key: 'now_rave', name: 'Now Rave Essential Oil', ratio: 1.0 }
     ],
-    prices: { 6: 7000, 10: 10000, 30: 30000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'coconut_passion',
@@ -237,7 +237,7 @@ export const RECIPES_CATALOG = [
     oils: [
       { key: 'coconut_passion', name: 'Coconut Passion Essential Oil', ratio: 1.0 }
     ],
-    prices: { 6: 7000, 10: 10000, 30: 30000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'vanilla_28',
@@ -250,7 +250,7 @@ export const RECIPES_CATALOG = [
     oils: [
       { key: 'vanilla_28', name: 'Vanilla 28 Essential Oil', ratio: 1.0 }
     ],
-    prices: { 6: 7000, 10: 10000, 30: 30000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'pink_chiffon',
@@ -263,7 +263,7 @@ export const RECIPES_CATALOG = [
     oils: [
       { key: 'pink_chiffon', name: 'Pink Chiffon Essential Oil', ratio: 1.0 }
     ],
-    prices: { 6: 7000, 10: 10000, 30: 30000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'noir_extreme',
@@ -276,7 +276,7 @@ export const RECIPES_CATALOG = [
     oils: [
       { key: 'noir_extreme', name: 'Tom Ford Noir Extreme Essential Oil', ratio: 1.0 }
     ],
-    prices: { 6: 8000, 10: 14000, 30: 40000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'reef',
@@ -289,7 +289,7 @@ export const RECIPES_CATALOG = [
     oils: [
       { key: 'reef', name: 'Reef Essential Oil', ratio: 1.0 }
     ],
-    prices: { 6: 7000, 10: 10000, 30: 30000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'burberry_weekend',
@@ -302,7 +302,7 @@ export const RECIPES_CATALOG = [
     oils: [
       { key: 'burberry_weekend', name: 'Burberry Weekend Essential Oil', ratio: 1.0 }
     ],
-    prices: { 6: 7000, 10: 10000, 30: 30000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: 'marshmallow',
@@ -315,7 +315,7 @@ export const RECIPES_CATALOG = [
     oils: [
       { key: 'marshmallow', name: 'Marshmallow Essential Oil', ratio: 1.0 }
     ],
-    prices: { 6: 7000, 10: 10000, 30: 30000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
   {
     id: '212_vip_men',
@@ -328,7 +328,46 @@ export const RECIPES_CATALOG = [
     oils: [
       { key: '212_vip_men', name: '212 VIP Men Essential Oil', ratio: 1.0 }
     ],
-    prices: { 6: 7000, 10: 11000, 30: 32000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
+  },
+  {
+    id: 'club_de_nuit',
+    name: 'Club de Nuit (Pure)',
+    category: 'Smoky Birch, Citrus, Magnetic',
+    group: 'Pure Scents',
+    status: 'New Core Scent',
+    restTime: '5 minutes',
+    description: 'Lemon, blackcurrant and apple over smoky birch, ambergris and musk.',
+    oils: [
+      { key: 'club_de_nuit', name: 'Club de Nuit Essential Oil', ratio: 1.0 }
+    ],
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
+  },
+  {
+    id: 'sauvage_dior',
+    name: 'Sauvage Dior (Pure)',
+    category: 'Fresh Spicy, Ambroxan',
+    group: 'Pure Scents',
+    status: 'New Core Scent',
+    restTime: '5 minutes',
+    description: 'Calabrian bergamot and Sichuan pepper over warm ambroxan and cedar.',
+    oils: [
+      { key: 'sauvage_dior', name: 'Sauvage Dior Essential Oil', ratio: 1.0 }
+    ],
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
+  },
+  {
+    id: 'strawberry',
+    name: 'Strawberry (Pure)',
+    category: 'Fruity Sweet, Cheerful',
+    group: 'Pure Scents',
+    status: 'New Core Scent',
+    restTime: '5 minutes',
+    description: 'Juicy wild strawberries, spun sugar and soft vanilla. Also used in car fresheners.',
+    oils: [
+      { key: 'strawberry', name: 'Strawberry Essential Oil', ratio: 1.0 }
+    ],
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   },
 
   // ====================================================
@@ -346,7 +385,7 @@ export const RECIPES_CATALOG = [
       { key: 'custom_oil_1', name: 'Primary Essential Oil (50%)', ratio: 0.50 },
       { key: 'custom_oil_2', name: 'Secondary Essential Oil (50%)', ratio: 0.50 }
     ],
-    prices: { 6: 8000, 10: 15000, 30: 40000 }
+    prices: { 6: 7000, 10: 15000, 30: 35000 }
   }
 ];
 
@@ -450,7 +489,7 @@ export function getSOPMeasurements(recipeId, bottleSize = 30) {
     };
   });
 
-  const sellingPrice = recipe.prices[size] || (size === 6 ? 7000 : (size === 10 ? 10000 : 35000));
+  const sellingPrice = recipe.prices[size] || (size === 6 ? 7000 : (size === 10 ? 15000 : 35000));
   const netProfit = sellingPrice - productionCost;
   const marginPercent = Math.round((netProfit / sellingPrice) * 100);
 

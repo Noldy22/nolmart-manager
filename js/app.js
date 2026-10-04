@@ -10,7 +10,12 @@ import {
   deleteInventoryItem,
   deductIngredientsForBlend,
   getFinancialSummary,
-  clearAllLocalData
+  clearAllLocalData,
+  ensureCoreStock,
+  localDateStr,
+  getSetting,
+  setSetting,
+  restockInventoryItem
 } from './db.js';
 
 import {
@@ -71,7 +76,7 @@ function getChannelLabel(key) {
     airtel: 'Airtel Money',
     selcom: 'Selcom',
     bank: 'Bank / CRDB',
-    tigo: 'Tigo Pesa'
+    tigo: 'Mixx by Yas (Tigo)'
   };
   return map[(key || '').toLowerCase()] || (key ? key.toUpperCase() : 'Cash');
 }
@@ -165,14 +170,14 @@ function initModals() {
   // Open Sale Modal
   document.getElementById('openSaleModalBtn')?.addEventListener('click', () => {
     const dateInput = document.getElementById('saleDate');
-    if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+    if (dateInput) dateInput.value = localDateStr();
     openModal('saleModal');
   });
 
   // Open Expense Modal
   document.getElementById('openExpenseModalBtn')?.addEventListener('click', () => {
     const dateInput = document.getElementById('expenseDate');
-    if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+    if (dateInput) dateInput.value = localDateStr();
     updateExpenseCalculations();
     openModal('expenseModal');
   });
@@ -180,12 +185,19 @@ function initModals() {
   // Open Transfer Modal
   const openTransferHandler = () => {
     const dateInput = document.getElementById('transferDate');
-    if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+    if (dateInput) dateInput.value = localDateStr();
     updateTransferCalculations();
     openModal('transferModal');
   };
   document.getElementById('openTransferModalBtn')?.addEventListener('click', openTransferHandler);
   document.getElementById('openTransferFromChannelsBtn')?.addEventListener('click', openTransferHandler);
+
+  // Open Capital Modal
+  document.getElementById('openCapitalModalBtn')?.addEventListener('click', () => {
+    const dateInput = document.getElementById('capitalDate');
+    if (dateInput) dateInput.value = localDateStr();
+    openModal('capitalModal');
+  });
 
   // Open Rebalance Channel Modal
   document.getElementById('openRebalanceModalBtn')?.addEventListener('click', () => {
@@ -226,11 +238,30 @@ function initModals() {
   const saleQtyEl = document.getElementById('saleQuantity');
   const saleDescEl = document.getElementById('saleDescription');
   const saleFormEl = document.getElementById('saleForm');
+  const saleAmountEl = document.getElementById('saleAmount');
+
+  function updateSaleDiscountNotice() {
+    const noticeEl = document.getElementById('saleDiscountNotice');
+    if (!saleAmountEl || !noticeEl) return;
+    const defaultPrice = parseFloat(saleAmountEl.dataset.defaultPrice || 35000);
+    const entered = parseFloat(saleAmountEl.value) || 0;
+    if (entered < defaultPrice && entered > 0) {
+      const discount = defaultPrice - entered;
+      const pct = Math.round((discount / defaultPrice) * 100);
+      noticeEl.textContent = `Discount: -${formatTZS(discount)} (${pct}% off standard ${formatTZS(defaultPrice)})`;
+      noticeEl.style.display = 'block';
+    } else {
+      noticeEl.style.display = 'none';
+    }
+  }
+
   const applySaleType = () => {
     const opt = saleTypeSelect.options[saleTypeSelect.selectedIndex];
     const qty = Math.max(1, parseInt(saleQtyEl.value, 10) || 1);
     if (opt.value !== 'custom') {
-      document.getElementById('saleAmount').value = Number(opt.value) * qty;
+      const stdPrice = Number(opt.value) * qty;
+      saleAmountEl.value = stdPrice;
+      saleAmountEl.dataset.defaultPrice = stdPrice;
     }
     // Auto-fill description for car fresheners (only if empty or previously auto-filled)
     if (opt.dataset.category === 'car_freshener_sale') {
@@ -242,11 +273,60 @@ function initModals() {
       saleDescEl.value = '';
       saleFormEl.dataset.autoDesc = '';
     }
+    updateSaleDiscountNotice();
   };
+
   if (saleTypeSelect) {
     saleTypeSelect.addEventListener('change', applySaleType);
     saleQtyEl?.addEventListener('input', applySaleType);
   }
+  if (saleAmountEl) {
+    saleAmountEl.addEventListener('input', updateSaleDiscountNotice);
+  }
+
+  // Quick preset pills in Sale modal
+  const pillBtns = document.querySelectorAll('#saleModal .btn-size-pill');
+  pillBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      pillBtns.forEach(b => {
+        b.classList.remove('active');
+        b.style.background = 'rgba(255,255,255,0.06)';
+        b.style.borderColor = 'var(--border)';
+        b.style.color = '#fff';
+      });
+      btn.classList.add('active');
+      btn.style.background = 'rgba(16, 185, 129, 0.2)';
+      btn.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+      btn.style.color = 'var(--emerald)';
+
+      const price = parseFloat(btn.dataset.price) || 0;
+      const desc = btn.dataset.desc || '';
+      const cat = btn.dataset.category || 'perfume_sale';
+
+      const qty = Math.max(1, parseInt(saleQtyEl?.value, 10) || 1);
+      const totalStd = price * qty;
+
+      if (saleAmountEl) {
+        saleAmountEl.value = totalStd;
+        saleAmountEl.dataset.defaultPrice = totalStd;
+      }
+      if (saleDescEl && (!saleDescEl.value || saleDescEl.value === saleFormEl.dataset.autoDesc)) {
+        saleDescEl.value = desc;
+        saleFormEl.dataset.autoDesc = desc;
+      }
+
+      if (saleTypeSelect) {
+        for (let i = 0; i < saleTypeSelect.options.length; i++) {
+          const opt = saleTypeSelect.options[i];
+          if (opt.value === String(price) && (!btn.dataset.category || opt.dataset.category === btn.dataset.category)) {
+            saleTypeSelect.selectedIndex = i;
+            break;
+          }
+        }
+      }
+      updateSaleDiscountNotice();
+    });
+  });
 }
 
 function openModal(modalId) {
@@ -274,8 +354,10 @@ function initForms() {
       const paymentMethod = document.getElementById('salePaymentMethod').value;
       const customerName = document.getElementById('saleCustomerName').value.trim();
       const customerPhone = document.getElementById('saleCustomerPhone').value.trim();
-      const date = document.getElementById('saleDate').value;
-      const notes = document.getElementById('saleNotes').value.trim();
+      const date = document.getElementById('saleDate').value || localDateStr();
+      const rawNotes = document.getElementById('saleNotes').value.trim();
+      const source = document.getElementById('saleSource')?.value || '';
+      const notes = source ? `[${source}] ${rawNotes}`.trim() : rawNotes;
 
       const typeSel = document.getElementById('saleProductTypeSelect');
       const selOpt = typeSel.options[typeSel.selectedIndex];
@@ -283,6 +365,17 @@ function initForms() {
       const isCarSale = saleCategory === 'car_freshener_sale';
 
       try {
+        let deductions = [];
+        let stockNote = '';
+        if (isCarSale) {
+          const unitItem = (await getAllInventory()).find(i => i.category === 'car_freshener' && i.subCategory === 'car_freshener_unit');
+          if (unitItem) {
+            await adjustStock(unitItem.id, -quantity);
+            deductions.push({ id: unitItem.id, name: unitItem.name, qty: quantity, unit: unitItem.unit });
+            stockNote = ` • stock ${Math.max(0, (unitItem.quantity || 0) - quantity)} left`;
+          }
+        }
+
         await addTransaction({
           type: 'income',
           category: saleCategory,
@@ -293,22 +386,17 @@ function initForms() {
           customerName,
           customerPhone,
           date,
-          notes
+          notes,
+          deductions
         });
-
-        let stockNote = '';
-        if (isCarSale) {
-          const unitItem = (await getAllInventory()).find(i => i.category === 'car_freshener' && i.subCategory === 'car_freshener_unit');
-          if (unitItem) {
-            await adjustStock(unitItem.id, -quantity);
-            stockNote = ` • stock ${Math.max(0, (unitItem.quantity || 0) - quantity)} left`;
-          }
-        }
 
         closeModal('saleModal');
         saleForm.reset();
         saleForm.dataset.autoDesc = '';
-        showToast(`${isCarSale ? '🚗 Car freshener sale' : 'Sale'} recorded: +${formatTZS(amount)} (${paymentMethod.toUpperCase()})${stockNote}`, 'success');
+        const discNotice = document.getElementById('saleDiscountNotice');
+        if (discNotice) discNotice.style.display = 'none';
+
+        showToast(`${isCarSale ? '🚗 Car freshener sale' : 'Sale'} recorded: +${formatTZS(amount)} (${getChannelLabel(paymentMethod)})${stockNote}`, 'success');
         await loadAllData();
       } catch (err) {
         showToast('Error recording sale: ' + err.message, 'error');
@@ -386,7 +474,7 @@ function initForms() {
 
       try {
         // 1. Deduct raw materials from stock based on SOP 60:40 formula
-        await deductIngredientsForBlend({
+        const deductions = await deductIngredientsForBlend({
           ingredients: m.ingredients,
           fixativeDrops: m.fixativeDrops,
           ethanolMl: m.ethanolMl,
@@ -404,8 +492,9 @@ function initForms() {
           paymentMethod,
           customerName,
           customerPhone,
-          date: new Date().toISOString().split('T')[0],
-          notes: `Blended on-demand via SOP. ${notes}`
+          date: localDateStr(),
+          notes: `Blended on-demand via SOP. ${notes}`,
+          deductions: deductions || []
         });
 
         closeModal('fulfillModal');
@@ -481,7 +570,7 @@ function initForms() {
       }
 
       try {
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = localDateStr();
         if (diff < 0) {
           // Actual < Ledger -> Log shortfall expense adjustment
           await addTransaction({
@@ -604,6 +693,60 @@ function initForms() {
         await loadAllData();
       } catch (err) {
         showToast('Error recording transfer: ' + err.message, 'error');
+      }
+    });
+  }
+
+  // 7. Restock Inventory Form
+  const restockForm = document.getElementById('restockForm');
+  if (restockForm) {
+    restockForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const itemId = parseInt(document.getElementById('restockItemId').value, 10);
+      const quantity = parseFloat(document.getElementById('restockQtyToAdd').value) || 0;
+      const totalCost = parseFloat(document.getElementById('restockTotalCost').value) || 0;
+      const paymentMethod = document.getElementById('restockPaymentMethod').value;
+      const notes = document.getElementById('restockNotes').value.trim();
+
+      try {
+        await restockInventoryItem({ itemId, quantity, totalCost, paymentMethod, notes });
+        closeModal('restockModal');
+        restockForm.reset();
+        showToast(`📦 Restocked (+${quantity})${totalCost > 0 ? ` & expense logged (-${formatTZS(totalCost)})` : ''}`, 'success');
+        await loadAllData();
+      } catch (err) {
+        showToast('Error restocking: ' + err.message, 'error');
+      }
+    });
+  }
+
+  // 8. Capital Injection Form
+  const capitalForm = document.getElementById('capitalForm');
+  if (capitalForm) {
+    capitalForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const paymentMethod = document.getElementById('capitalPaymentMethod').value;
+      const amount = parseFloat(document.getElementById('capitalAmount').value) || 0;
+      const description = document.getElementById('capitalDescription').value.trim() || 'Capital Injection';
+      const date = document.getElementById('capitalDate').value || localDateStr();
+
+      try {
+        await addTransaction({
+          type: 'income',
+          category: 'capital',
+          description,
+          amount,
+          paymentMethod,
+          date,
+          fee: 0,
+          notes: 'Capital / Opening balance'
+        });
+        closeModal('capitalModal');
+        capitalForm.reset();
+        showToast(`💰 Capital added: +${formatTZS(amount)} (${getChannelLabel(paymentMethod)})`, 'success');
+        await loadAllData();
+      } catch (err) {
+        showToast('Error recording capital: ' + err.message, 'error');
       }
     });
   }
@@ -771,7 +914,8 @@ async function renderDashboard() {
 
   document.getElementById('statCashInHand').textContent = formatTZS(summary.expectedCashInHand);
   document.getElementById('statTotalSales').textContent = formatTZS(summary.totalSales);
-  document.getElementById('statSalesCount').textContent = `${summary.totalTransactions} transactions in period`;
+  const salesCountText = `${summary.salesCount || 0} sale${(summary.salesCount || 0) === 1 ? '' : 's'} (${summary.totalTransactions} total entries)`;
+  document.getElementById('statSalesCount').textContent = salesCountText;
   document.getElementById('statTotalExpenses').textContent = formatTZS(summary.totalExpenses);
   document.getElementById('statNetProfit').textContent = formatTZS(summary.netProfit);
   document.getElementById('statOwnersDraw').textContent = formatTZS(summary.ownersDraw);
@@ -790,7 +934,14 @@ async function renderDashboard() {
   const selcomEl = document.getElementById('methodSelcom');
   if (selcomEl) selcomEl.textContent = formatTZS(summary.paymentBreakdown.selcom || 0);
   document.getElementById('methodBank').textContent = formatTZS(summary.paymentBreakdown.bank);
-  document.getElementById('methodTigo').textContent = formatTZS(summary.paymentBreakdown.tigo);
+
+  const tigoBal = summary.paymentBreakdown.tigo || 0;
+  const tigoEl = document.getElementById('methodTigo');
+  if (tigoEl) tigoEl.textContent = formatTZS(tigoBal);
+  const tigoCard = document.getElementById('cardTigo');
+  if (tigoCard) {
+    tigoCard.style.display = tigoBal > 0 ? 'flex' : 'none';
+  }
 
   // Sales by product line
   const carSales = summary.carFreshenerSales || 0;
@@ -972,6 +1123,7 @@ function renderInventoryTab() {
         <div class="inv-footer">
           <span>Min Alert: ${item.minThreshold || 1} ${item.unit || ''}</span>
           <div class="inv-actions">
+            <button class="btn-restock-item" data-id="${item.id}" data-name="${escapeHTML(item.name)}" data-unit="${item.unit || 'units'}" data-qty="${item.quantity}" style="background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--cyan); border-radius: 4px; padding: 2px 7px; font-size: 0.72rem; font-weight: 600; cursor: pointer;">+ Restock</button>
             <button class="btn-stock-adjust btn-decrement-stock" data-id="${item.id}" title="Decrease">-</button>
             <button class="btn-stock-adjust btn-increment-stock" data-id="${item.id}" title="Increase">+</button>
             <button class="btn-stock-adjust btn-delete-stock" data-id="${item.id}" title="Delete" style="color: var(--rose); font-size: 0.9rem;">&times;</button>
@@ -980,6 +1132,35 @@ function renderInventoryTab() {
       </div>
     `;
   }).join('');
+
+  document.querySelectorAll('.btn-restock-item').forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.dataset.id;
+      const name = btn.dataset.name;
+      const unit = btn.dataset.unit;
+      const qty = btn.dataset.qty;
+
+      const idEl = document.getElementById('restockItemId');
+      const nameEl = document.getElementById('restockItemName');
+      const qtyEl = document.getElementById('restockCurrentQty');
+      const unitEl = document.getElementById('restockItemUnit');
+      const unitLbl = document.getElementById('restockUnitLabel');
+      const addEl = document.getElementById('restockQtyToAdd');
+      const costEl = document.getElementById('restockTotalCost');
+      const notesEl = document.getElementById('restockNotes');
+
+      if (idEl) idEl.value = id;
+      if (nameEl) nameEl.textContent = name;
+      if (qtyEl) qtyEl.textContent = qty;
+      if (unitEl) unitEl.textContent = unit;
+      if (unitLbl) unitLbl.textContent = unit;
+      if (addEl) addEl.value = '';
+      if (costEl) costEl.value = '0';
+      if (notesEl) notesEl.value = '';
+
+      openModal('restockModal');
+    };
+  });
 
   document.querySelectorAll('.btn-increment-stock').forEach(btn => {
     btn.onclick = async () => {
@@ -1261,34 +1442,46 @@ async function startApp() {
   initSettingsAndExports();
 
   await openDatabase();
-  await seedCarFreshenerStock();
+  await ensureCoreStock();
 
   await loadAllData();
   renderSOPLab();
   initCustomSelects();
+  checkBackupReminder();
 }
 
-// One-time: add a finished-unit stock row for Car Air Fresheners so sales can deduct from it
-async function seedCarFreshenerStock() {
-  try {
-    if (localStorage.getItem('nolmart_car_freshener_seeded')) return;
-    const inv = await getAllInventory();
-    if (!inv.some(i => i.category === 'car_freshener')) {
-      await addInventoryItem({
-        name: 'Strawberry Car Air Freshener (finished units)',
-        category: 'car_freshener',
-        subCategory: 'car_freshener_unit',
-        quantity: 0,
-        unit: 'pcs',
-        unitCost: 0,
-        sellingPrice: 10000,
-        minThreshold: 3
-      });
-    }
-    localStorage.setItem('nolmart_car_freshener_seeded', '1');
-  } catch (e) {
-    console.warn('Car freshener seed skipped:', e);
+async function checkBackupReminder() {
+  const banner = document.getElementById('backupReminderBanner');
+  if (!banner) return;
+
+  const lastBackupStr = await getSetting('lastBackupDate');
+  let shouldShow = false;
+
+  if (!lastBackupStr) {
+    const txCount = (state.transactions || []).length;
+    if (txCount > 3) shouldShow = true;
+  } else {
+    const lastDate = new Date(lastBackupStr);
+    const diffDays = (Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
+    if (diffDays >= 7) shouldShow = true;
   }
+
+  if (shouldShow && !sessionStorage.getItem('backupBannerDismissed')) {
+    banner.style.display = 'flex';
+  } else {
+    banner.style.display = 'none';
+  }
+
+  document.getElementById('backupNowBannerBtn')?.addEventListener('click', async () => {
+    await downloadFullBackup();
+    banner.style.display = 'none';
+    showToast('Backup downloaded successfully! 💾', 'success');
+  });
+
+  document.getElementById('dismissBackupBannerBtn')?.addEventListener('click', () => {
+    banner.style.display = 'none';
+    sessionStorage.setItem('backupBannerDismissed', 'true');
+  });
 }
 
 if (document.readyState === 'loading') {

@@ -1,5 +1,5 @@
 // js/export.js - Local Data Export, CSV Generation & Private JSON Backups
-import { getAllTransactions, getAllInventory, exportAllDataJSON, importAllDataJSON } from './db.js';
+import { getAllTransactions, getAllInventory, exportAllDataJSON, importAllDataJSON, localDateStr, setSetting } from './db.js';
 
 // Trigger download in browser
 function downloadFile(content, fileName, mimeType) {
@@ -17,9 +17,14 @@ function downloadFile(content, fileName, mimeType) {
 // 1. Download Full JSON Backup
 export async function downloadFullBackup() {
   const jsonStr = await exportAllDataJSON();
-  const dateStr = new Date().toISOString().split('T')[0];
+  const dateStr = localDateStr();
   const filename = `NolMart_Backup_${dateStr}.json`;
   downloadFile(jsonStr, filename, 'application/json');
+  try {
+    await setSetting('lastBackupDate', dateStr);
+  } catch (e) {
+    // Non-critical if settings fail
+  }
 }
 
 // 2. Restore from JSON File
@@ -72,7 +77,7 @@ export async function exportTransactionsToCSV() {
   });
 
   const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-  const dateStr = new Date().toISOString().split('T')[0];
+  const dateStr = localDateStr();
   downloadFile(csvContent, `NolMart_Transactions_${dateStr}.csv`, 'text/csv;charset=utf-8;');
 }
 
@@ -104,6 +109,6 @@ export async function exportInventoryToCSV() {
   });
 
   const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-  const dateStr = new Date().toISOString().split('T')[0];
+  const dateStr = localDateStr();
   downloadFile(csvContent, `NolMart_Inventory_${dateStr}.csv`, 'text/csv;charset=utf-8;');
 }
