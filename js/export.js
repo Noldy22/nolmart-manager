@@ -53,12 +53,13 @@ export async function exportTransactionsToCSV() {
     return;
   }
 
-  const headers = ['ID', 'Date', 'Type', 'Category', 'Description', 'Quantity', 'Amount (TZS)', 'Fee (TZS)', 'Payment Channel / Movement', 'Customer Name', 'Customer Phone', 'Notes'];
+  const headers = ['ID', 'Date', 'Type', 'Category', 'Description', 'Quantity', 'Amount (TZS)', 'Fee (TZS)', 'Payment Channel / Movement', 'Source / Channel', 'Customer Name', 'Customer Phone', 'Notes'];
   
   const rows = txs.map(t => {
     const channelDisplay = t.type === 'transfer'
       ? `${(t.fromMethod || t.paymentMethod || 'CASH').toUpperCase()} -> ${(t.toMethod || '').toUpperCase()}`
       : (t.paymentMethod || 'cash').toUpperCase();
+    const sourceDisplay = t.source || (t.notes ? (t.notes.match(/^\[(.*?)\]/)?.[1] || '') : '');
 
     return [
       t.id,
@@ -70,6 +71,7 @@ export async function exportTransactionsToCSV() {
       t.amount || 0,
       t.fee || 0,
       `"${channelDisplay}"`,
+      `"${sourceDisplay.replace(/"/g, '""')}"`,
       `"${(t.customerName || '').replace(/"/g, '""')}"`,
       `"${(t.customerPhone || '').replace(/"/g, '""')}"`,
       `"${(t.notes || '').replace(/"/g, '""')}"`

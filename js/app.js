@@ -386,6 +386,7 @@ function initForms() {
           customerName,
           customerPhone,
           date,
+          source,
           notes,
           deductions
         });
@@ -470,7 +471,9 @@ function initForms() {
       const customerName = document.getElementById('fulfillCustomerName').value.trim();
       const customerPhone = document.getElementById('fulfillCustomerPhone').value.trim();
       const paymentMethod = document.getElementById('fulfillPaymentMethod').value;
-      const notes = document.getElementById('fulfillNotes').value.trim();
+      const rawNotes = document.getElementById('fulfillNotes').value.trim();
+      const source = document.getElementById('fulfillSource')?.value || '';
+      const notes = source ? `[${source}] Blended on-demand via SOP. ${rawNotes}`.trim() : `Blended on-demand via SOP. ${rawNotes}`.trim();
 
       try {
         // 1. Deduct raw materials from stock based on SOP 60:40 formula
@@ -493,7 +496,8 @@ function initForms() {
           customerName,
           customerPhone,
           date: localDateStr(),
-          notes: `Blended on-demand via SOP. ${notes}`,
+          source,
+          notes,
           deductions: deductions || []
         });
 
@@ -1019,6 +1023,17 @@ function renderTxItemHTML(t) {
   const isCar = t.category === 'car_freshener_sale' || t.category === 'car_freshener_supplies';
   const icon = isRebalance ? '⚖️' : (isCar ? '🚗' : (isIncome ? '↑' : '↓'));
 
+  const rawSource = t.source || (t.notes ? (t.notes.match(/^\[(.*?)\]/)?.[1] || '') : '');
+  const sourceIcons = {
+    'Direct Call': '📞 Direct Call',
+    'WhatsApp': '💬 WhatsApp',
+    'Instagram': '📸 Instagram',
+    'TikTok': '🎵 TikTok',
+    'Website': '🌐 Website',
+    'Walk-in': '🚶 Walk-in'
+  };
+  const sourceLabel = rawSource ? (sourceIcons[rawSource] || rawSource) : '';
+
   return `
     <div class="tx-item ${isIncome ? 'tx-income' : 'tx-expense'}">
       <div class="tx-left">
@@ -1029,6 +1044,7 @@ function renderTxItemHTML(t) {
             <span>${t.date}</span>
             <span>•</span>
             <span class="tx-payment-badge">${escapeHTML(getChannelLabel(t.paymentMethod || 'cash'))}</span>
+            ${sourceLabel ? `<span class="tx-source-badge">${escapeHTML(sourceLabel)}</span>` : ''}
             ${fee > 0 ? `<span style="color: var(--amber); font-weight: 600;">• Fee: ${formatTZS(fee)}</span>` : ''}
             ${t.customerName ? `<span>• ${escapeHTML(t.customerName)}</span>` : ''}
           </span>
@@ -1077,7 +1093,8 @@ function renderTransactionsTab() {
     list = list.filter(t =>
       (t.description || '').toLowerCase().includes(searchTerm) ||
       (t.customerName || '').toLowerCase().includes(searchTerm) ||
-      (t.notes || '').toLowerCase().includes(searchTerm)
+      (t.notes || '').toLowerCase().includes(searchTerm) ||
+      (t.source || '').toLowerCase().includes(searchTerm)
     );
   }
 
